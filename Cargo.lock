@@ -372,6 +372,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "http_client"
+version = "0.1.0"
+source = "git+https://github.com/brandonros/http_client.git?rev=60bde76d4d80379762758d32ff7bfecaf6c58a12#60bde76d4d80379762758d32ff7bfecaf6c58a12"
+dependencies = [
+ "async-io",
+ "async-tls",
+ "futures-lite",
+ "http",
+ "log",
+]
+
+[[package]]
 name = "humantime"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -674,6 +686,8 @@ dependencies = [
  "env_logger",
  "futures",
  "futures-lite",
+ "http",
+ "http_client",
  "log",
  "nom",
  "rand",
@@ -726,14 +740,13 @@ dependencies = [
 [[package]]
 name = "websocket_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/websocket_client.git?rev=ab32cefd79552690605f16d7fe36906014229a81#ab32cefd79552690605f16d7fe36906014229a81"
+source = "git+https://github.com/brandonros/websocket_client.git?rev=4786386f45126a6d4e737a3c42d32fe2603f2d8b#4786386f45126a6d4e737a3c42d32fe2603f2d8b"
 dependencies = [
  "async-io",
  "async-tls",
  "base64 0.22.1",
  "bytes",
  "futures-lite",
- "http",
  "log",
  "nom",
  "rand",
