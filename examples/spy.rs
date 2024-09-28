@@ -153,6 +153,8 @@ fn main() {
                                 // respond to ping
                                 tv_client.pong(ping_frame.nonce).await.expect("failed to add to pong");
                             }
+
+                            // TODO: parse more frames
                         },
                         None => log::warn!("failed to read frame?"),
                     }
