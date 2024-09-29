@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use miniserde::json::{Array, Number, Object, Value};
 
 use crate::types::Result;
@@ -90,6 +92,7 @@ pub struct TimescaleUpdatedFrame {
 
 #[derive(Debug)]
 pub enum ParsedTradingViewFrame {
+    Ping(usize),
     QuoteSeriesData(QuoteSeriesDataFrame),
     DataUpdate(DataUpdateFrame),
     QuoteCompleted(QuoteCompletedFrame),
@@ -98,6 +101,14 @@ pub enum ParsedTradingViewFrame {
 
 impl ParsedTradingViewFrame {
     pub fn from_string(value: &str) -> Result<Self> {
+        // ping frames are not json
+        if value.starts_with("~h~") {
+            let nonce_str = &value[3..];
+            let nonce = nonce_str.parse::<usize>().map_err(|_| "failed to parse nonce")?;
+            return Ok(ParsedTradingViewFrame::Ping(nonce));
+        }
+
+        // all other frames are json
         let parsed_frame: miniserde::json::Object = miniserde::json::from_str(&value)?;
         let frame_type = parsed_frame.get("m").ok_or("failed to get frame_type")?;
         let frame_type = value_to_string(frame_type)?;

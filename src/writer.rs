@@ -1,7 +1,6 @@
 use websocket_client::WebSocketWriter;
 
 use crate::frame::TradingViewFrame;
-use crate::ping_frame::TradingViewPingFrame;
 use crate::futures_provider::io::AsyncWrite;
 use crate::types::Result;
 
@@ -126,7 +125,7 @@ where
     }   
 
     pub async fn pong(&mut self, nonce: usize) -> Result<()> {
-        let message = TradingViewPingFrame::serialize(nonce);
+        let message = format!("~h~{nonce}");
         self
             .write_frame(&message)
             .await

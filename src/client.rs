@@ -12,7 +12,6 @@ use crate::futures_provider::io::{BufReader, BufWriter};
 use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::frame::TradingViewFrame;
-use crate::ping_frame::TradingViewPingFrame;
 
 pub struct TradingViewClient {
     name: String,
@@ -186,31 +185,25 @@ impl TradingViewClient {
             let frame_result = utilities::wait_for_message(&frame_rx, &mut buffer, |_| true).await;
             match frame_result {
                 Some(frame) => {
-                    // check if frame is ping frame
-                    if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(&frame.payload.as_bytes()) {
-                        log::info!("[{}]: ping_frame = {ping_frame:02x?}", self.name);
-                        // respond to ping
-                        tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
-                    } else {
-                        //log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
-
-                        log::info!("frame_payload = {}", frame.payload);
-
-                        let parsed_frame = ParsedTradingViewFrame::from_string(&frame.payload).expect("failed to parse frame");
-                        match parsed_frame {
-                            ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
-                                //log::info!("quote_series_data_frame = {quote_series_data_frame:?}");
-                            },
-                            ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
-                                log::info!("data_update_frame = {data_update_frame:?}");
-                            },
-                            ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
-                                log::info!("quote_completed_frame = {quote_completed_frame:?}");
-                            },
-                            ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
-                                log::info!("timescale_updated_frame = {timescale_updated_frame:?}");
-                            },
-                        }
+                    log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
+                    let parsed_frame = ParsedTradingViewFrame::from_string(&frame.payload).expect("failed to parse frame");
+                    match parsed_frame {
+                        ParsedTradingViewFrame::Ping(nonce) => {
+                            log::info!("ping nonce = {nonce}");
+                            tv_writer.pong(nonce).await.expect("failed to pong");
+                        },
+                        ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
+                            log::info!("quote_series_data_frame = {quote_series_data_frame:?}");
+                        },
+                        ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
+                            log::info!("data_update_frame = {data_update_frame:?}");
+                        },
+                        ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
+                            log::info!("quote_completed_frame = {quote_completed_frame:?}");
+                        },
+                        ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
+                            log::info!("timescale_updated_frame = {timescale_updated_frame:?}");
+                        },
                     }
                 },
                 None => panic!("closed")
