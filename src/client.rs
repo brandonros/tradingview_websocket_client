@@ -17,15 +17,19 @@ pub struct TradingViewClient {
     chart_symbol: String,
     quote_symbol: String,
     indicator: Option<String>,
+    timeframe: String,
+    range: usize
 }
 
 impl TradingViewClient {
-    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicator: Option<String>) -> Self {
+    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicator: Option<String>, timeframe: String, range: usize) -> Self {
         Self {
             name,
             chart_symbol,
             quote_symbol,
-            indicator
+            indicator,
+            timeframe,
+            range
         }
     }
 
@@ -45,7 +49,6 @@ impl TradingViewClient {
             .header("Upgrade", "websocket")      
             .header("Sec-WebSocket-Version", "13")                        
             .header("Sec-WebSocket-Key", WebSocketHelpers::generate_sec_websocket_key())    
-            //.header("Sec-WebSocket-Extensions", "permessage-deflate; client_max_window_bits")
             .body(())
             .expect("Failed to build request");
 
@@ -116,9 +119,7 @@ impl TradingViewClient {
 
         // add symbol to chart session as series
         let series_id = "sds_1";
-        let timeframe = "5";
-        let range = 300;
-        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, timeframe, range).await.expect("failed to create series");
+        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await.expect("failed to create series");
 
         // wait for series loading frame
         let series_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
@@ -158,8 +159,8 @@ impl TradingViewClient {
         log::info!("quote_session_data_frame = {quote_session_data_frame:?}");
 
         // request more tickmarks from symbol
-        /*let range = 10;
-        tv_writer.request_more_tickmarks(chart_session_id, series_id, range).await.expect("failed to request more tickmarks");*/
+        let range = 300;
+        tv_writer.request_more_tickmarks(chart_session_id1, series_id, range).await.expect("failed to request more tickmarks");
 
         // turn on quote fast symbols for quote session
         tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
