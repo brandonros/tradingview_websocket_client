@@ -26,7 +26,7 @@ fn main() {
                     "pineVersion":"1.0",
                     "in_0":{"v":14,"f":true,"t":"integer"}
                 }"#;
-                let client = TradingViewClient::new(chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
+                let client = TradingViewClient::new("BTC".to_string(), chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
                 client.run().await
             })
         });
@@ -40,7 +40,7 @@ fn main() {
                     "pineVersion":"1.0",
                     "in_0":{"v":14,"f":true,"t":"integer"}
                 }"#;
-                let client = TradingViewClient::new(chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
+                let client = TradingViewClient::new("BONK".to_string(), chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
                 client.run().await
             })
         });
@@ -54,7 +54,7 @@ fn main() {
                     "pineVersion":"1.0",
                     "in_0":{"v":14,"f":true,"t":"integer"}
                 }"#;
-                let client = TradingViewClient::new(chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
+                let client = TradingViewClient::new("SPY".to_string(), chart_symbol.to_string(), quote_symbol.to_string(), Some(indicator.to_string()));
                 client.run().await
             })
         });

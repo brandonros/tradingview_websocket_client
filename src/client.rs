@@ -13,14 +13,16 @@ use crate::frame::TradingViewFrame;
 use crate::ping_frame::TradingViewPingFrame;
 
 pub struct TradingViewClient {
+    name: String,
     chart_symbol: String,
     quote_symbol: String,
     indicator: Option<String>,
 }
 
 impl TradingViewClient {
-    pub fn new(chart_symbol: String, quote_symbol: String, indicator: Option<String>) -> Self {
+    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicator: Option<String>) -> Self {
         Self {
+            name,
             chart_symbol,
             quote_symbol,
             indicator
@@ -182,7 +184,7 @@ impl TradingViewClient {
                         // respond to ping
                         tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
                     } else {
-                        log::info!("frame_payload = {}", frame.payload);
+                        log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
                     }
                 },
                 None => panic!("closed")
