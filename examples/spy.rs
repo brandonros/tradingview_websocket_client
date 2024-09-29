@@ -130,23 +130,23 @@ fn main() {
         tv_writer.set_locale("en", "US").await.expect("failed to set locale");
 
         // create chart session
-        let chart_session_id = "cs_2AzYWhCHOwik";
-        tv_writer.chart_create_session(chart_session_id).await.expect("failed to create chart session");
+        let chart_session_id1 = "cs_000000000001";
+        tv_writer.chart_create_session(chart_session_id1).await.expect("failed to create chart session");
 
         // resolve symbol
         let symbol = r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#;
         //let symbol = r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#;
         let symbol_id = "sds_sym_1";
-        tv_writer.resolve_symbol(chart_session_id, symbol_id, symbol).await.expect("failed to add symbol to resolve symbol");
+        tv_writer.resolve_symbol(chart_session_id1, symbol_id, symbol).await.expect("failed to add symbol to resolve symbol");
 
         // switch chart timezone
-        tv_writer.switch_timezone(chart_session_id, "exchange").await.expect("failed to switch chart timezone");
+        tv_writer.switch_timezone(chart_session_id1, "exchange").await.expect("failed to switch chart timezone");
 
         // add symbol to chart session as series
         let series_id = "sds_1";
         let timeframe = "5";
         let range = 300;
-        tv_writer.create_series(chart_session_id, series_id, "s1",  symbol_id, timeframe, range).await.expect("failed to create series");
+        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, timeframe, range).await.expect("failed to create series");
 
         // TODO: wait for series loading frame
         let series_loading_frame = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |frame| {
@@ -159,14 +159,14 @@ fn main() {
         log::info!("series_loading_frame = {series_loading_frame:?}");
 
         // create quote session
-        let quote_session_id1 = "qs_EaDCc5CHTQaa";
+        let quote_session_id1 = "qs_000000000001";
         tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
 
         // add symbol to quote session
         tv_writer.quote_add_symbols(quote_session_id1, symbol).await.expect("failed to add symbol to quote session");
 
         // create quote session
-        let quote_session_id2 = "qs_CbGU6IdgHeyC";
+        let quote_session_id2 = "qs_000000000002";
         tv_writer.quote_create_session(quote_session_id2).await.expect("failed to create quote session");
 
         // set quote session fields
@@ -196,7 +196,7 @@ fn main() {
 
         // create study session
         let study_session_id = "st1";
-        tv_writer.create_study(chart_session_id, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
+        tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
 
         // add studies to study session
         let study_value = r#"{
@@ -204,7 +204,7 @@ fn main() {
             "pineVersion":"1.0",
             "in_0":{"v":14,"f":true,"t":"integer"}
         }"#;
-        tv_writer.create_study(chart_session_id, "st2", study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
+        tv_writer.create_study(chart_session_id1, "st2", study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
 
         // read all frames
         loop {
