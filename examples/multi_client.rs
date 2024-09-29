@@ -48,7 +48,7 @@ fn main() {
         
     // build clients
     let clients = vec![
-        TradingViewClientConfig {
+        /*TradingViewClientConfig {
             name: "BTC5".to_string(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BTCUSDT".to_string(),
@@ -71,6 +71,15 @@ fn main() {
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
             quote_symbol: "AMEX:SPY".to_string(),
             indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
+            timeframe: "5".to_string(),
+            range: 300,
+        }.to_client(),*/
+
+        TradingViewClientConfig {
+            name: "BTC5".to_string(),
+            chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
+            quote_symbol: "BINANCE:BTCUSDT".to_string(),
+            indicators: vec![],
             timeframe: "5".to_string(),
             range: 300,
         }.to_client(),
