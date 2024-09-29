@@ -186,7 +186,7 @@ impl TradingViewClient {
                 Some(frame) => {
                     // check if frame is ping frame
                     if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(&frame.payload.as_bytes()) {
-                        log::info!("ping_frame = {ping_frame:02x?}");
+                        log::info!("[{}]: ping_frame = {ping_frame:02x?}", self.name);
                         // respond to ping
                         tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
                     } else {
