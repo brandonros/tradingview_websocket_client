@@ -75,10 +75,19 @@ fn main() {
             range: 300,
         }.to_client(),*/
 
-        TradingViewClientConfig {
+        /*TradingViewClientConfig {
             name: "BTC5".to_string(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BTCUSDT".to_string(),
+            indicators: vec![],
+            timeframe: "5".to_string(),
+            range: 300,
+        }.to_client(),*/
+
+        TradingViewClientConfig {
+            name: "ES1".to_string(),
+            chart_symbol: r#"={\"adjustment\":\"splits\",\"session\":\"regular\",\"symbol\":\"CME_MINI:ES1!\"}"#.to_string(),
+            quote_symbol: "CME_MINI:ES1!".to_string(),
             indicators: vec![],
             timeframe: "5".to_string(),
             range: 300,

@@ -198,11 +198,11 @@ impl TradingViewClient {
 
                         let parsed_frame = ParsedTradingViewFrame::from_string(&frame.payload).expect("failed to parse frame");
                         match parsed_frame {
-                            ParsedTradingViewFrame::Qsd(qsd_frame) => {
-                                log::info!("qsd_frame = {qsd_frame:?}");
+                            ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
+                                //log::info!("quote_series_data_frame = {quote_series_data_frame:?}");
                             },
-                            ParsedTradingViewFrame::Du(du_frame) => {
-                                log::info!("du_frame = {du_frame:?}");
+                            ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
+                                log::info!("data_update_frame = {data_update_frame:?}");
                             },
                             ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
                                 log::info!("quote_completed_frame = {quote_completed_frame:?}");
