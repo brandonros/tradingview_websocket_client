@@ -88,7 +88,7 @@ fn main() {
 
     // watch handles
     loop {
-        for handle in handles {
+        for handle in &handles {
             if handle.is_finished() {
                 panic!("a handle finished");
             }
