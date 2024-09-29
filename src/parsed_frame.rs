@@ -86,8 +86,20 @@ pub struct QuoteCompletedFrame {
 }
 
 #[derive(Debug, Clone)]
-pub struct TimescaleUpdatedFrame {
+pub struct TimescaleUpdate {
+    pub index: Number,
+    pub timestamp: Number,
+    pub open: Number,
+    pub high: Number,
+    pub low: Number,
+    pub close: Number,
+}
 
+#[derive(Debug, Clone)]
+pub struct TimescaleUpdatedFrame {
+    pub chart_session_id: String,
+    pub update_key: Option<String>,
+    pub updates: Option<Vec<TimescaleUpdate>>
 }
 
 #[derive(Debug, Clone)]
@@ -220,10 +232,63 @@ impl ParsedTradingViewFrame {
                 symbol
             }))
         } else if frame_type == "timescale_update" {
-            log::info!("timescale_update = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
-                
-            }))
+            //log::info!("timescale_update parsed_frame = {parsed_frame:?}");    
+            let p = parsed_frame.get("p").ok_or("failed to get p")?;
+            let p = value_to_array(p)?;
+            let chart_session_id = &p[0];
+            let chart_session_id = value_to_string(&chart_session_id)?;
+            let update = &p[1];
+            let update = value_to_object(&update)?;
+            let update_keys = update.keys().collect::<Vec<&String>>();
+            if update_keys.len() == 0 {
+                // weird timescale_update with index/zoffset/changes/marks but nothing of any interest/importance
+                Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
+                    chart_session_id,
+                    update_key: None,
+                    updates: None
+                }))
+            } else if update_keys.len() == 1 {
+                let update_key = update_keys[0];
+                let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
+                let s = update_value.get("s").ok_or("failed to get s")?;
+                let s = value_to_array(s)?;
+                let timescale_updates = s.iter().map(|element| {
+                    // value -> object
+                    let element = value_to_object(&element).expect("failed to cast");
+                    
+                    // pluck i (index)
+                    let i = element.get("i").expect("failed to get i");
+                    let i = value_to_number(i).expect("failed to cast");
+
+                    // pluck v (values)
+                    let v = element.get("v").expect("failed to get v");
+                    let v = value_to_array(v).expect("failed to cast");
+
+                    // pluck out of values
+                    let timestamp = value_to_number(&v[0]).expect("failed to cast");
+                    let open = value_to_number(&v[1]).expect("failed to cast");
+                    let high = value_to_number(&v[2]).expect("failed to cast");
+                    let low = value_to_number(&v[3]).expect("failed to cast");
+                    let close = value_to_number(&v[4]).expect("failed to cast");
+
+                    // return
+                    TimescaleUpdate {
+                        index: i,
+                        timestamp,
+                        open,
+                        high,
+                        low,
+                        close,
+                    }
+                }).collect::<Vec<_>>();
+                Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
+                    chart_session_id,
+                    update_key: Some(update_key.to_string()),
+                    updates: Some(timescale_updates)
+                }))
+            } else {
+                unimplemented!()
+            }
         } else if frame_type == "series_loading" {
             log::info!("series_loading = {parsed_frame:?}");                        
             Ok(ParsedTradingViewFrame::SeriesLoading(SeriesLoadingFrame {
