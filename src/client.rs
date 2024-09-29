@@ -2,8 +2,10 @@ use std::time::Duration;
 
 use http::{Request, Uri, Version};
 use http_client::HttpClient;
+
 use websocket_client::{WebSocketHelpers, WebSocketReader, WebSocketWriter};
 
+use crate::parsed_frame::ParsedTradingViewFrame;
 use crate::utilities;
 use crate::futures_provider;
 use crate::futures_provider::io::{BufReader, BufWriter};
@@ -190,7 +192,25 @@ impl TradingViewClient {
                         // respond to ping
                         tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
                     } else {
-                        log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
+                        //log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
+
+                        log::info!("frame_payload = {}", frame.payload);
+
+                        let parsed_frame = ParsedTradingViewFrame::from_string(&frame.payload).expect("failed to parse frame");
+                        match parsed_frame {
+                            ParsedTradingViewFrame::Qsd(qsd_frame) => {
+                                log::info!("qsd_frame = {qsd_frame:?}");
+                            },
+                            ParsedTradingViewFrame::Du(du_frame) => {
+                                log::info!("du_frame = {du_frame:?}");
+                            },
+                            ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
+                                log::info!("quote_completed_frame = {quote_completed_frame:?}");
+                            },
+                            ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
+                                log::info!("timescale_updated_frame = {timescale_updated_frame:?}");
+                            },
+                        }
                     }
                 },
                 None => panic!("closed")
@@ -198,3 +218,4 @@ impl TradingViewClient {
         }
     }
 }
+

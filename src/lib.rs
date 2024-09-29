@@ -6,6 +6,7 @@ mod writer;
 mod types;
 mod client;
 mod utilities;
+mod parsed_frame;
 
 pub use reader::*;
 pub use writer::*;

@@ -26,7 +26,8 @@ websocket_client = { git = "https://github.com/brandonros/websocket_client.git",
 # http
 http = "1.0.0"
 http_client = { git = "https://github.com/brandonros/http_client.git", rev = "60bde76d4d80379762758d32ff7bfecaf6c58a12" }
-
+# json
+miniserde = "0.1.40"
 
 [dev-dependencies]
 # logging
