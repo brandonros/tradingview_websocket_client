@@ -51,6 +51,8 @@ impl TradingViewFrameWrapper {
                 nom::Err::Failure(nom::error::Error::new(payload, ErrorKind::Fail))
             })?;
 
+        log::debug!("string_payload = {string_payload}");
+
         // Try to parse into frame
         let parsed_frame = ParsedTradingViewFrame::from_string(&string_payload)
             .map_err(|_| {

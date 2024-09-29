@@ -32,3 +32,5 @@ miniserde = "0.1.40"
 [dev-dependencies]
 # logging
 env_logger = "0.11.5"
+# env
+dotenvy = "0.15.7"

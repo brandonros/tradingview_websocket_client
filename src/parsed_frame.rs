@@ -76,7 +76,7 @@ pub struct QuoteSeriesDataFrame {
 pub struct DataUpdateFrame {
     pub chart_session_id: String,
     pub update_key: String,
-    pub updates: Array
+    pub updates: Option<Array>
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +123,21 @@ pub struct SeriesCompletedFrame {
 }
 
 #[derive(Debug, Clone)]
+pub struct StudyLoadingFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct StudyErrorFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct StudyCompletedFrame {
+
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedTradingViewFrame {
     ServerHello(ServerHelloFrame),
     Ping(usize),
@@ -133,6 +148,9 @@ pub enum ParsedTradingViewFrame {
     SeriesLoading(SeriesLoadingFrame),
     SymbolResolved(SymbolResolvedFrame),
     SeriesCompleted(SeriesCompletedFrame),
+    StudyLoading(StudyLoadingFrame),
+    StudyError(StudyErrorFrame),
+    StudyCompleted(StudyCompletedFrame),
 }
 
 impl ParsedTradingViewFrame {
@@ -212,13 +230,23 @@ impl ParsedTradingViewFrame {
             assert!(update_keys.len() == 1);
             let update_key = update_keys[0];
             let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
-            let s = update_value.get("s").ok_or("failed to get s")?;
-            let s = value_to_array(s)?;
-            Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
-                chart_session_id,
-                update_key: update_key.to_string(),
-                updates: s
-            }))
+            if update_value.contains_key("s") {
+                let s = update_value.get("s").ok_or("failed to get s")?;
+                let s = value_to_array(s)?;
+                Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                    chart_session_id,
+                    update_key: update_key.to_string(),
+                    updates: Some(s)
+                }))
+            } else {
+                // watch out for weird du frame with no updates on it?
+                Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                    chart_session_id,
+                    update_key: update_key.to_string(),
+                    updates: None
+                }))
+            }
+            
         } else if frame_type == "quote_completed" {
             //log::info!("quote_completed = {parsed_frame:?}"); 
             let p = parsed_frame.get("p").ok_or("failed to get p")?;
@@ -302,6 +330,21 @@ impl ParsedTradingViewFrame {
         } else if frame_type == "series_completed" {
             log::info!("series_completed = {parsed_frame:?}");                        
             Ok(ParsedTradingViewFrame::SeriesCompleted(SeriesCompletedFrame {
+                
+            }))
+        } else if frame_type == "study_loading" {
+            log::info!("study_loading = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::StudyLoading(StudyLoadingFrame {
+                
+            }))
+        } else if frame_type == "study_error" {
+            log::info!("study_error = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::StudyError(StudyErrorFrame {
+                
+            }))
+        } else if frame_type == "study_completed" {
+            log::info!("study_completed = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::StudyCompleted(StudyCompletedFrame {
                 
             }))
         } else {

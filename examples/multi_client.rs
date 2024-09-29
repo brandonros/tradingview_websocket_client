@@ -15,6 +15,7 @@ use tradingview_client::TradingViewClient;
 
 struct TradingViewClientConfig {
     name: String,
+    auth_token: String,
     chart_symbol: String,
     quote_symbol: String,
     indicators: Vec<String>,
@@ -26,6 +27,7 @@ impl TradingViewClientConfig {
     fn to_client(&self) -> TradingViewClient {
         TradingViewClient::new(
             self.name.to_string(),
+            self.auth_token.to_string(),
             self.chart_symbol.to_string(),
             self.quote_symbol.to_string(),
             self.indicators.clone(),
@@ -45,11 +47,15 @@ static VOLUME_DELTA_14_INDICATOR: &str = r#"{
 fn main() {
     // init logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug,websocket_client=info,rustls=info,http_client=info")).init();
+
+    // init env vars
+    dotenvy::from_filename("./.env").expect("failed to load env vars");
         
     // build clients
     let clients = vec![
-        /*TradingViewClientConfig {
+        TradingViewClientConfig {
             name: "BTC5".to_string(),
+            auth_token: std::env::var("AUTH_TOKEN").expect("failed to get AUTH_TOKEN"),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BTCUSDT".to_string(),
             indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
@@ -57,7 +63,7 @@ fn main() {
             range: 300,
         }.to_client(),
         
-        TradingViewClientConfig {
+        /*TradingViewClientConfig {
             name: "BONK5".to_string(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BONKUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BONKUSDT".to_string(),
@@ -73,25 +79,16 @@ fn main() {
             indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
             timeframe: "5".to_string(),
             range: 300,
-        }.to_client(),*/
-
-        /*TradingViewClientConfig {
-            name: "BTC5".to_string(),
-            chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
-            quote_symbol: "BINANCE:BTCUSDT".to_string(),
-            indicators: vec![],
-            timeframe: "5".to_string(),
-            range: 300,
-        }.to_client(),*/
+        }.to_client(),
 
         TradingViewClientConfig {
             name: "ES1".to_string(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"session\":\"regular\",\"symbol\":\"CME_MINI:ES1!\"}"#.to_string(),
             quote_symbol: "CME_MINI:ES1!".to_string(),
-            indicators: vec![],
+            indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
             timeframe: "5".to_string(),
             range: 300,
-        }.to_client(),
+        }.to_client(),*/
     ];
 
     // spawn clients on threads

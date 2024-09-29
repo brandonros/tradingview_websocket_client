@@ -15,6 +15,7 @@ use crate::frame_wrapper::TradingViewFrameWrapper;
 
 pub struct TradingViewClient {
     name: String,
+    auth_token: String,
     chart_symbol: String,
     quote_symbol: String,
     indicators: Vec<String>,
@@ -23,9 +24,10 @@ pub struct TradingViewClient {
 }
 
 impl TradingViewClient {
-    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize) -> Self {
+    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize) -> Self {
         Self {
             name,
+            auth_token,
             chart_symbol,
             quote_symbol,
             indicators,
@@ -102,7 +104,7 @@ impl TradingViewClient {
         log::info!("server_hello_frame = {server_hello_frame:?}");
 
         // set auth token
-        tv_writer.set_auth_token("unauthorized_user_token").await.expect("failed to set auth token");
+        tv_writer.set_auth_token(&self.auth_token).await.expect("failed to set auth token");
         
         // set locale
         tv_writer.set_locale("en", "US").await.expect("failed to set locale");
@@ -122,8 +124,8 @@ impl TradingViewClient {
         let series_id = "sds_1";
         tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await.expect("failed to create series");
 
-        // wait for series loading frame
-        let series_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
+         // wait for series loading frame
+         let series_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
             log::info!("frame = {frame:?}");
             frame.payload.contains("series_loading")
         })))
@@ -132,48 +134,86 @@ impl TradingViewClient {
             .expect("failed to get series loading frame");
         log::info!("series_loading_frame = {series_loading_frame:?}");
 
-        // create quote session
-        let quote_session_id1 = "qs_000000000001";
-        tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
-
-        // add symbol to quote session
-        tv_writer.quote_add_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to add symbol to quote session");
-
-        // create quote session
-        let quote_session_id2 = "qs_000000000002";
-        tv_writer.quote_create_session(quote_session_id2).await.expect("failed to create quote session");
-
-        // set quote session fields
-        tv_writer.quote_set_fields(quote_session_id2).await.expect("failed to set quote fields");
-
-        // add symbol to quote session
-        tv_writer.quote_add_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to add symbol to quote session");
-
-        // wait for quote session data frame
-        let quote_session_data_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
+        // wait for series completed frame
+        let series_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
             log::info!("frame = {frame:?}");
-            frame.payload.contains("qsd")
+            frame.payload.contains("series_completed")
         })))
             .await
             .expect("timed out")
-            .expect("failed to get quote session data frame");
-        log::info!("quote_session_data_frame = {quote_session_data_frame:?}");
+            .expect("failed to get series completed frame");
+        log::info!("series_completed_frame = {series_completed_frame:?}");
 
-        // request more tickmarks from symbol
-        let range = 300;
-        tv_writer.request_more_tickmarks(chart_session_id1, series_id, range).await.expect("failed to request more tickmarks");
+        /*{
+            // create quote session
+            let quote_session_id1 = "qs_000000000001";
+            tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
 
-        // turn on quote fast symbols for quote session
-        tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
+            // set quote session fields
+            tv_writer.quote_set_fields(quote_session_id1).await.expect("failed to set quote fields");
+
+            // add symbol to quote session
+            tv_writer.quote_add_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to add symbol to quote session");
+
+            // turn on quote fast symbols for quote session
+            tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
+
+            // wait for quote completed frame
+            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
+                log::info!("frame = {frame:?}");
+                frame.payload.contains("quote_completed")
+            })))
+                .await
+                .expect("timed out")
+                .expect("failed to get quote completed frame");
+            log::info!("quote_completed_frame = {quote_completed_frame:?}");
+        }
+
+        {
+            // create quote session
+            let quote_session_id2 = "qs_000000000002";
+            tv_writer.quote_create_session(quote_session_id2).await.expect("failed to create quote session");
+
+            // set quote session fields
+            tv_writer.quote_set_fields(quote_session_id2).await.expect("failed to set quote fields");
+
+            // add symbol to quote session
+            tv_writer.quote_add_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to add symbol to quote session");
+
+            // turn on quote fast symbols for quote session
+            tv_writer.quote_fast_symbols(quote_session_id2, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
+
+            // wait for quote completed frame
+            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
+                log::info!("frame = {frame:?}");
+                frame.payload.contains("quote_completed")
+            })))
+                .await
+                .expect("timed out")
+                .expect("failed to get quote completed frame");
+            log::info!("quote_completed_frame = {quote_completed_frame:?}");
+        }*/
+
+        // TODO: request more tickmarks from symbol?
 
         // optionally create study session
         if self.indicators.len() > 0 {
             let study_session_id = "st1";
             tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
 
+            // wait for study completed frame
+            let study_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
+                log::info!("frame = {frame:?}");
+                frame.payload.contains("study_completed")
+            })))
+                .await
+                .expect("timed out")
+                .expect("failed to get study completed frame");
+            log::info!("study_completed_frame = {study_completed_frame:?}");
+
             let mut index = 2;
             for indciator in &self.indicators {
-                let study_value = &indciator;
+                let study_value = indciator;
                 let study_id = format!("st{index}");
                 tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
                 index += 1;
@@ -215,6 +255,15 @@ impl TradingViewClient {
                         },
                         ParsedTradingViewFrame::SeriesCompleted(series_completed_frame) => {
                             log::info!("series_completed_frame = {series_completed_frame:?}");
+                        },
+                        ParsedTradingViewFrame::StudyLoading(study_loading_frame) => {
+                            log::info!("study_loading_frame = {study_loading_frame:?}");
+                        },
+                        ParsedTradingViewFrame::StudyError(study_error_frame) => {
+                            log::info!("study_error_frame = {study_error_frame:?}");
+                        },
+                        ParsedTradingViewFrame::StudyCompleted(study_completed_frame) => {
+                            log::info!("study_completed_frame = {study_completed_frame:?}");
                         },
                     }
                 },
