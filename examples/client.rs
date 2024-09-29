@@ -208,25 +208,19 @@ fn main() {
 
         // read all frames
         loop {
-            let timeout_result = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |_| true)))
-                .await;
-            match timeout_result {
-                Some(frame_result) => {
-                    match frame_result {
-                        Some(frame) => {
-                            log::info!("frame = {frame:?}");
-
-                            // check if frame is ping frame
-                            if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(&frame.payload.as_bytes()) {
-                                log::info!("ping_frame = {ping_frame:02x?}");
-                                // respond to ping
-                                tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
-                            }
-                        },
-                        None => panic!("no match")
+            let frame_result = wait_for_message(&frame_rx, &mut buffer, |_| true).await;
+            match frame_result {
+                Some(frame) => {
+                    // check if frame is ping frame
+                    if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(&frame.payload.as_bytes()) {
+                        log::info!("ping_frame = {ping_frame:02x?}");
+                        // respond to ping
+                        tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
+                    } else {
+                        log::info!("frame_payload = {}", frame.payload);
                     }
                 },
-                None => log::warn!("timed out"),
+                None => panic!("closed")
             }
         }
     })
