@@ -87,10 +87,12 @@ fn main() {
     }
 
     // watch handles
-    for handle in handles {
-        if handle.is_finished() {
-            panic!("a handle finished");
+    loop {
+        for handle in handles {
+            if handle.is_finished() {
+                panic!("a handle finished");
+            }
+            std::thread::sleep(Duration::from_millis(1000));
         }
-        std::thread::sleep(Duration::from_millis(1000));
     }
 }
