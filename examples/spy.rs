@@ -3,7 +3,6 @@ compile_error!(
     "You must enable either the `futures` or `futures-lite` feature to build this crate."
 );
 
-use async_channel::unbounded;
 #[cfg(feature = "futures")]
 use futures as futures_provider;
 
@@ -11,7 +10,6 @@ use futures as futures_provider;
 use futures_lite as futures_provider;
 
 use futures_provider::io::{BufReader, BufWriter};
-use futures_provider::pin;
 use http::{Request, Uri, Version};
 use http_client::HttpClient;
 use websocket_client::{WebSocketReader, WebSocketWriter, WebSocketHelpers};
@@ -19,11 +17,6 @@ use tradingview_client::{TradingViewFrame, TradingViewPingFrame, TradingViewRead
 
 use async_io::Timer;
 use std::time::Duration;
-
-enum ReaderMessage {
-    Frame(TradingViewFrame),
-    Pong(String), // The pong message to send
-}
 
 async fn run_with_timeout<F, T>(timeout: Duration, future: F) -> Option<T>
 where
@@ -34,6 +27,28 @@ where
         None
     })
     .await
+}
+
+async fn wait_for_message<F, T>(
+    frame_rx: &async_channel::Receiver<T>,
+    buffer: &mut Vec<T>,
+    condition: F,
+) -> Option<T>
+where
+    F: Fn(&T) -> bool,
+{
+    loop {
+        match frame_rx.recv().await {
+            Ok(frame) => {
+                if condition(&frame) {
+                    return Some(frame);
+                } else {
+                    buffer.push(frame);
+                }
+            }
+            Err(_) => return None, // Channel closed
+        }
+    }
 }
 
 fn main() {
@@ -78,55 +93,35 @@ fn main() {
         let mut tv_reader = TradingViewReader::new(ws_reader);
         let mut tv_writer = TradingViewWriter::new(ws_writer);
 
+        // channels
         let (frame_tx, frame_rx) = async_channel::unbounded::<TradingViewFrame>();
 
-        // spawn reader task
-        let reader_handle = std::thread::spawn(move || {
-            futures_provider::future::block_on(async move {
+        // Spawn the reader task
+        let _reader_handle = std::thread::spawn(move || {
+            futures_provider::future::block_on(async {
                 loop {
                     match tv_reader.read_frame().await {
-                        Ok(Some(frame)) => {
-                            log::info!("frame_payload = {}", frame.payload);
-
-                            // Check if frame is ping frame
-                            if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(frame.payload.as_bytes()) {
-                                log::info!("ping_frame = {:?}", ping_frame);
-                                // Send pong response to main task
-                                let pong_message = TradingViewPingFrame::serialize(ping_frame.nonce);
-                                if let Err(e) = reader_tx.send(ReaderMessage::Pong(pong_message)).await {
-                                    log::error!("Failed to send pong message to main task: {}", e);
-                                    break;
-                                }
-                            } else {
-                                
+                        Ok(result) => {
+                            match result {
+                                Some(frame) => frame_tx.send(frame).await.expect("failed to send frame"),
+                                None => panic!("received none"),
                             }
-        
-                            // TODO: Parse more frames as needed
                         },
-                        Ok(None) => {
-                            log::warn!("Connection closed");
-                            break;
-                        },
-                        Err(e) => {
-                            log::error!("Error reading frame: {}", e);
-                            break;
-                        },
+                        Err(err) => panic!("{err:?}"),
                     }
                 }
             })
         });
+
+        // Introduce the buffer
+        let mut buffer = Vec::new();
         
-        // TODO #2: wait for server hello frame for up to 1000ms and timeout otherwise
-        // TODO #3: this is hard because when the reader gets a frame, we need to put it in a buffer
-        run_with_timeout(Duration::from_millis(1000), Box::pin(async {
-            loop {
-                let frame = frame_rx.recv().await.unwrap();
-                // Check for server hello
-                if frame.payload.contains("server_hello") {
-                    break Ok(());
-                }
-            }
-        })).await;
+        // Wait for server hello frame with timeout
+        let server_hello_frame = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |frame| frame.payload.contains("javastudies"))))
+            .await
+            .expect("timed out")
+            .expect("failed to get server hello frame");
+        log::info!("server_hello_frame = {server_hello_frame:?}");
 
         // set auth token
         tv_writer.set_auth_token("unauthorized_user_token").await.expect("failed to set auth token");
@@ -138,22 +133,14 @@ fn main() {
         let chart_session_id = "cs_2AzYWhCHOwik";
         tv_writer.chart_create_session(chart_session_id).await.expect("failed to create chart session");
 
-        // switch chart timezone
-        tv_writer.switch_timezone(chart_session_id, "exchange").await.expect("failed to switch chart timezone");
-
-        // create quote session
-        let quote_session_id1 = "qs_EaDCc5CHTQaa";
-        tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
-
-        // add symbol to quote session
-        let symbol = r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#;
-        tv_writer.quote_add_symbols(quote_session_id1, symbol).await.expect("failed to add symbol to quote session");
-
-        // TODO: wait for series loading frame
-
         // resolve symbol
+        let symbol = r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#;
+        //let symbol = r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#;
         let symbol_id = "sds_sym_1";
         tv_writer.resolve_symbol(chart_session_id, symbol_id, symbol).await.expect("failed to add symbol to resolve symbol");
+
+        // switch chart timezone
+        tv_writer.switch_timezone(chart_session_id, "exchange").await.expect("failed to switch chart timezone");
 
         // add symbol to chart session as series
         let series_id = "sds_1";
@@ -161,17 +148,44 @@ fn main() {
         let range = 300;
         tv_writer.create_series(chart_session_id, series_id, "s1",  symbol_id, timeframe, range).await.expect("failed to create series");
 
+        // TODO: wait for series loading frame
+        let series_loading_frame = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |frame| {
+            log::info!("frame = {frame:?}");
+            frame.payload.contains("series_loading")
+        })))
+            .await
+            .expect("timed out")
+            .expect("failed to get series loading frame");
+        log::info!("series_loading_frame = {series_loading_frame:?}");
+
         // create quote session
-        /*let quote_session_id2 = "qs_CbGU6IdgHeyC";
+        let quote_session_id1 = "qs_EaDCc5CHTQaa";
+        tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
+
+        // add symbol to quote session
+        tv_writer.quote_add_symbols(quote_session_id1, symbol).await.expect("failed to add symbol to quote session");
+
+        // create quote session
+        let quote_session_id2 = "qs_CbGU6IdgHeyC";
         tv_writer.quote_create_session(quote_session_id2).await.expect("failed to create quote session");
 
         // set quote session fields
         tv_writer.quote_set_fields(quote_session_id2).await.expect("failed to set quote fields");
 
         // add symbol to quote session
-        tv_writer.quote_add_symbols(quote_session_id2, "AMEX:SPY").await.expect("failed to add symbol to quote session");*/
+        //let quote_symbol = "AEMX:SPY";
+        let quote_symbol = "BINANCE:BTCUSDT";
+        tv_writer.quote_add_symbols(quote_session_id2, quote_symbol).await.expect("failed to add symbol to quote session");
 
-        // TODO: wait for quote session data frame
+        // wait for quote session data frame
+        let quote_session_data_frame = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |frame| {
+            log::info!("frame = {frame:?}");
+            frame.payload.contains("qsd")
+        })))
+            .await
+            .expect("timed out")
+            .expect("failed to get quote session data frame");
+        log::info!("quote_session_data_frame = {quote_session_data_frame:?}");
 
         // request more tickmarks from symbol
         /*let range = 10;
@@ -181,7 +195,7 @@ fn main() {
         tv_writer.quote_fast_symbols(quote_session_id1, symbol).await.expect("failed to turn on quote fast symbols");
 
         // create study session
-        /*let study_session_id = "st1";
+        let study_session_id = "st1";
         tv_writer.create_study(chart_session_id, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
 
         // add studies to study session
@@ -190,9 +204,30 @@ fn main() {
             "pineVersion":"1.0",
             "in_0":{"v":14,"f":true,"t":"integer"}
         }"#;
-        tv_writer.create_study(chart_session_id, "st2", study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");*/
+        tv_writer.create_study(chart_session_id, "st2", study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
 
-        // block on reader task
-        reader_handle.join().expect("failed to join task");
+        // read all frames
+        loop {
+            let timeout_result = run_with_timeout(Duration::from_secs(1), Box::pin(wait_for_message(&frame_rx, &mut buffer, |_| true)))
+                .await;
+            match timeout_result {
+                Some(frame_result) => {
+                    match frame_result {
+                        Some(frame) => {
+                            log::info!("frame = {frame:?}");
+
+                            // check if frame is ping frame
+                            if let Ok((_, ping_frame)) = TradingViewPingFrame::parse(&frame.payload.as_bytes()) {
+                                log::info!("ping_frame = {ping_frame:02x?}");
+                                // respond to ping
+                                tv_writer.pong(ping_frame.nonce).await.expect("failed to add to pong");
+                            }
+                        },
+                        None => panic!("no match")
+                    }
+                },
+                None => log::warn!("timed out"),
+            }
+        }
     })
 }
