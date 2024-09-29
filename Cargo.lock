@@ -61,6 +61,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-channel"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89b47800b0be77592da0afd425cc03468052844aff33b84e33cc696f64e77b6a"
+dependencies = [
+ "concurrent-queue",
+ "event-listener-strategy",
+ "futures-core",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-io"
 version = "2.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -681,6 +693,7 @@ checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 name = "tradingview_client"
 version = "0.1.0"
 dependencies = [
+ "async-channel",
  "async-io",
  "bytes",
  "env_logger",
@@ -740,7 +753,7 @@ dependencies = [
 [[package]]
 name = "websocket_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/websocket_client.git?rev=4786386f45126a6d4e737a3c42d32fe2603f2d8b#4786386f45126a6d4e737a3c42d32fe2603f2d8b"
+source = "git+https://github.com/brandonros/websocket_client.git?rev=370b83d34e975420660a836e1fc9dc246de147c2#370b83d34e975420660a836e1fc9dc246de147c2"
 dependencies = [
  "async-io",
  "async-tls",

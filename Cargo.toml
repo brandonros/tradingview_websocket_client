@@ -21,7 +21,7 @@ rand = "0.8.5"
 bytes = "1.7.2"
 nom = "7.1.3"
 # websocket
-websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "4786386f45126a6d4e737a3c42d32fe2603f2d8b" }
+websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "370b83d34e975420660a836e1fc9dc246de147c2" }
 
 [dev-dependencies]
 # logging
@@ -29,3 +29,5 @@ env_logger = "0.11.5"
 # http
 http = "1.0.0"
 http_client = { git = "https://github.com/brandonros/http_client.git", rev = "60bde76d4d80379762758d32ff7bfecaf6c58a12" }
+# mpsc
+async-channel = "2.3.1"
