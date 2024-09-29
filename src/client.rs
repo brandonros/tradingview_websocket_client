@@ -16,18 +16,18 @@ pub struct TradingViewClient {
     name: String,
     chart_symbol: String,
     quote_symbol: String,
-    indicator: Option<String>,
+    indicators: Vec<String>,
     timeframe: String,
     range: usize
 }
 
 impl TradingViewClient {
-    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicator: Option<String>, timeframe: String, range: usize) -> Self {
+    pub fn new(name: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize) -> Self {
         Self {
             name,
             chart_symbol,
             quote_symbol,
-            indicator,
+            indicators,
             timeframe,
             range
         }
@@ -166,12 +166,17 @@ impl TradingViewClient {
         tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
 
         // optionally create study session
-        if let Some(study_value) = &self.indicator {
+        if self.indicators.len() > 0 {
             let study_session_id = "st1";
             tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
 
-            // add studies to study session
-            tv_writer.create_study(chart_session_id1, "st2", study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
+            let mut index = 2;
+            for indciator in &self.indicators {
+                let study_value = &indciator;
+                let study_id = format!("st{index}");
+                tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
+                index += 1;
+            }
         }
 
         // read all frames
