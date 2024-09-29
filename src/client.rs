@@ -11,7 +11,7 @@ use crate::futures_provider;
 use crate::futures_provider::io::{BufReader, BufWriter};
 use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
-use crate::frame::TradingViewFrame;
+use crate::frame_wrapper::TradingViewFrameWrapper;
 
 pub struct TradingViewClient {
     name: String,
@@ -72,7 +72,7 @@ impl TradingViewClient {
         let mut tv_writer = TradingViewWriter::new(ws_writer);
 
         // channels
-        let (frame_tx, frame_rx) = async_channel::unbounded::<TradingViewFrame>();
+        let (frame_tx, frame_rx) = async_channel::unbounded::<TradingViewFrameWrapper>();
 
         // Spawn the reader task
         let _reader_handle = std::thread::spawn(move || {
@@ -192,6 +192,9 @@ impl TradingViewClient {
                             log::info!("ping nonce = {nonce}");
                             tv_writer.pong(nonce).await.expect("failed to pong");
                         },
+                        ParsedTradingViewFrame::ServerHello(server_hello_frame) => {
+                            log::info!("server_hello_frame = {server_hello_frame:?}");
+                        },
                         ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
                             log::info!("quote_series_data_frame = {quote_series_data_frame:?}");
                         },
@@ -203,6 +206,15 @@ impl TradingViewClient {
                         },
                         ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
                             log::info!("timescale_updated_frame = {timescale_updated_frame:?}");
+                        },
+                        ParsedTradingViewFrame::SeriesLoading(series_loading_frame) => {
+                            log::info!("series_loading_frame = {series_loading_frame:?}");
+                        },
+                        ParsedTradingViewFrame::SymbolResolved(symbol_resolved_frame) => {
+                            log::info!("symbol_resolved_frame = {symbol_resolved_frame:?}");
+                        },
+                        ParsedTradingViewFrame::SeriesCompleted(series_completed_frame) => {
+                            log::info!("series_completed_frame = {series_completed_frame:?}");
                         },
                     }
                 },

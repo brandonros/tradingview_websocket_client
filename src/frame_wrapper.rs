@@ -6,12 +6,15 @@ use nom::{
     IResult,
 };
 
+use crate::parsed_frame::ParsedTradingViewFrame;
+
 #[derive(Debug, Clone)]
-pub struct TradingViewFrame {
+pub struct TradingViewFrameWrapper {
     pub payload: String,
+    pub parsed_frame: ParsedTradingViewFrame
 }
 
-impl TradingViewFrame {
+impl TradingViewFrameWrapper {
     /// Serializes a message into the TradingView frame format.
     pub fn serialize(input: &str) -> String {
         let input_len = input.len();
@@ -19,7 +22,7 @@ impl TradingViewFrame {
     }
 
     /// Parses a TradingView frame from the input bytes.
-    pub fn parse(input: &[u8]) -> IResult<&[u8], TradingViewFrame> {
+    pub fn parse(input: &[u8]) -> IResult<&[u8], TradingViewFrameWrapper> {
         // Parse the prefix "~m~"
         let (input, _) = tag_streaming("~m~")(input)?;
 
@@ -43,15 +46,22 @@ impl TradingViewFrame {
         let (input, payload) = take_streaming(input_len)(input)?;
 
         // Convert payload to string
-        let payload = String::from_utf8(payload.to_vec())
+        let string_payload = String::from_utf8(payload.to_vec())
+            .map_err(|_| {
+                nom::Err::Failure(nom::error::Error::new(payload, ErrorKind::Fail))
+            })?;
+
+        // Try to parse into frame
+        let parsed_frame = ParsedTradingViewFrame::from_string(&string_payload)
             .map_err(|_| {
                 nom::Err::Failure(nom::error::Error::new(payload, ErrorKind::Fail))
             })?;
 
         Ok((
             input,
-            TradingViewFrame {
-                payload
+            TradingViewFrameWrapper {
+                payload: string_payload,
+                parsed_frame
             },
         ))
     }

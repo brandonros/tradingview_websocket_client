@@ -1,6 +1,6 @@
 use websocket_client::WebSocketWriter;
 
-use crate::frame::TradingViewFrame;
+use crate::frame_wrapper::TradingViewFrameWrapper;
 use crate::futures_provider::io::AsyncWrite;
 use crate::types::Result;
 
@@ -23,7 +23,7 @@ where
 
     /// Writes a message to the TradingView server.
     pub async fn write_frame(&mut self, message: &str) -> Result<()> {
-        let tv_message = TradingViewFrame::serialize(message);
+        let tv_message = TradingViewFrameWrapper::serialize(message);
         log::debug!("write_frame: tv_message = {tv_message}");
         self.writer.write_frame(&tv_message).await
     }

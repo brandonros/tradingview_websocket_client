@@ -1,5 +1,5 @@
 mod futures_provider;
-mod frame;
+mod frame_wrapper;
 mod reader;
 mod writer;
 mod types;
@@ -9,5 +9,5 @@ mod parsed_frame;
 
 pub use reader::*;
 pub use writer::*;
-pub use frame::*;
+pub use frame_wrapper::*;
 pub use client::*;

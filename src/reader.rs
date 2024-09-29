@@ -2,7 +2,7 @@ use websocket_client::WebSocketReader;
 use bytes::{Buf, BytesMut};
 
 use crate::futures_provider::io::AsyncRead;
-use crate::frame::TradingViewFrame;
+use crate::frame_wrapper::TradingViewFrameWrapper;
 use crate::types::Result;
 
 pub struct TradingViewReader<R>
@@ -26,7 +26,7 @@ where
     }
 
     /// Reads the next TradingView frame, handling partial frames and buffering.
-    pub async fn read_frame(&mut self) -> Result<Option<TradingViewFrame>> {
+    pub async fn read_frame(&mut self) -> Result<Option<TradingViewFrameWrapper>> {
         loop {
             // Try to parse a TradingView frame from the tv_buffer
             if let Some(frame) = self.parse_frame()? {
@@ -56,14 +56,14 @@ where
     }
 
     /// Parses a TradingView frame from the buffer.
-    fn parse_frame(&mut self) -> Result<Option<TradingViewFrame>> {
+    fn parse_frame(&mut self) -> Result<Option<TradingViewFrameWrapper>> {
         if self.buffer.is_empty() {
             return Ok(None);
         }
 
         let input = &self.buffer[..];
 
-        match TradingViewFrame::parse(input) {
+        match TradingViewFrameWrapper::parse(input) {
             Ok((remaining, frame)) => {
                 let parsed_len = input.len() - remaining.len();
                 self.buffer.advance(parsed_len);

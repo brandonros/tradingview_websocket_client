@@ -47,7 +47,7 @@ fn is_null(input: &Object, key: &str) -> Result<bool> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QuoteSeriesDataUpdate {
     pub symbol: String,
     pub volume: Option<Number>,
@@ -66,37 +66,61 @@ pub struct QuoteSeriesDataUpdate {
     pub trade_loaded: Option<bool>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QuoteSeriesDataFrame {
     pub quote_session_id: String,
     pub update: QuoteSeriesDataUpdate,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DataUpdateFrame {
     pub chart_session_id: String,
     pub update_key: String,
     pub updates: Array
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct QuoteCompletedFrame {
     pub quote_session_id: String,
     pub symbol: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TimescaleUpdatedFrame {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct ServerHelloFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct SeriesLoadingFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct SymbolResolvedFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct SeriesCompletedFrame {
+
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedTradingViewFrame {
+    ServerHello(ServerHelloFrame),
     Ping(usize),
     QuoteSeriesData(QuoteSeriesDataFrame),
     DataUpdate(DataUpdateFrame),
     QuoteCompleted(QuoteCompletedFrame),
     TimescaleUpdate(TimescaleUpdatedFrame),
+    SeriesLoading(SeriesLoadingFrame),
+    SymbolResolved(SymbolResolvedFrame),
+    SeriesCompleted(SeriesCompletedFrame),
 }
 
 impl ParsedTradingViewFrame {
@@ -110,6 +134,15 @@ impl ParsedTradingViewFrame {
 
         // all other frames are json
         let parsed_frame: miniserde::json::Object = miniserde::json::from_str(&value)?;
+
+        // check for server hello frame
+        if parsed_frame.contains_key("javastudies") {
+            return Ok(ParsedTradingViewFrame::ServerHello(ServerHelloFrame {  
+
+            }));
+        }
+        
+        // all other frames have m property
         let frame_type = parsed_frame.get("m").ok_or("failed to get frame_type")?;
         let frame_type = value_to_string(frame_type)?;
         if frame_type == "qsd" {
@@ -189,6 +222,21 @@ impl ParsedTradingViewFrame {
         } else if frame_type == "timescale_update" {
             log::info!("timescale_update = {parsed_frame:?}");                        
             Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
+                
+            }))
+        } else if frame_type == "series_loading" {
+            log::info!("series_loading = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::SeriesLoading(SeriesLoadingFrame {
+                
+            }))
+        } else if frame_type == "symbol_resolved" {
+            log::info!("symbol_resolved = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::SymbolResolved(SymbolResolvedFrame {
+                
+            }))
+        } else if frame_type == "series_completed" {
+            log::info!("series_completed = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::SeriesCompleted(SeriesCompletedFrame {
                 
             }))
         } else {
