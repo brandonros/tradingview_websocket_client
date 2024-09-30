@@ -89,12 +89,13 @@ fn main() {
 
     // init env vars
     dotenvy::from_filename("./.env").expect("failed to load env vars");
+    let auth_token = std::env::var("AUTH_TOKEN").expect("failed to get AUTH_TOKEN");
         
     // build clients
     let clients = vec![
         TradingViewClientConfig {
             name: "BTC5".to_string(),
-            auth_token: std::env::var("AUTH_TOKEN").expect("failed to get AUTH_TOKEN"),
+            auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BTCUSDT".to_string(),
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
@@ -102,32 +103,35 @@ fn main() {
             range: 300,
         }.to_client(),
         
-        /*TradingViewClientConfig {
+        TradingViewClientConfig {
             name: "BONK5".to_string(),
+            auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BONKUSDT\"}"#.to_string(),
             quote_symbol: "BINANCE:BONKUSDT".to_string(),
-            indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
+            indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
         }.to_client(),
 
         TradingViewClientConfig {
             name: "SPY5".to_string(),
+            auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
             quote_symbol: "AMEX:SPY".to_string(),
-            indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
+            indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
         }.to_client(),
 
         TradingViewClientConfig {
             name: "ES1".to_string(),
+            auth_token: auth_token.clone(),            
             chart_symbol: r#"={\"adjustment\":\"splits\",\"session\":\"regular\",\"symbol\":\"CME_MINI:ES1!\"}"#.to_string(),
             quote_symbol: "CME_MINI:ES1!".to_string(),
-            indicators: vec![VOLUME_DELTA_14_INDICATOR.to_string()],
+            indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
-        }.to_client(),*/
+        }.to_client(),
     ];
 
     // spawn clients on threads
