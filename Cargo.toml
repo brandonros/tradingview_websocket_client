@@ -15,6 +15,7 @@ futures-lite = { version =  "2.3.0", optional = true }
 async-io = "2.3.4"
 async-channel = "2.3.1"
 async-lock = "3.4.0"
+async-trait = "0.1.83"
 # logging
 log = "0.4.20"
 # random numbers
@@ -29,6 +30,7 @@ http = "1.0.0"
 http_client = { git = "https://github.com/brandonros/http_client.git", rev = "60bde76d4d80379762758d32ff7bfecaf6c58a12" }
 # json
 miniserde = "0.1.40"
+
 
 [dev-dependencies]
 # logging

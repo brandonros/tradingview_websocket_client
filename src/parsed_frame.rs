@@ -76,7 +76,8 @@ pub struct QuoteSeriesDataFrame {
 pub struct DataUpdateFrame {
     pub chart_session_id: String,
     pub update_key: String,
-    pub updates: Option<Array>
+    pub series_updates: Option<Array>,
+    pub study_updates: Option<Array>,
 }
 
 #[derive(Debug, Clone)]
@@ -235,22 +236,38 @@ impl ParsedTradingViewFrame {
             let update_keys = update.keys().collect::<Vec<&String>>();
             assert!(update_keys.len() == 1);
             let update_key = update_keys[0];
-            let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
-            if update_value.contains_key("s") {
-                let s = update_value.get("s").ok_or("failed to get s")?;
-                let s = value_to_array(s)?;
+            if update_key == "sds_1" { // series
+                let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
+                if update_value.contains_key("s") {
+                    let s = update_value.get("s").ok_or("failed to get s")?;
+                    let s = value_to_array(s)?;
+                    Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                        chart_session_id,
+                        update_key: update_key.to_string(),
+                        series_updates: Some(s),
+                        study_updates: None
+                    }))
+                } else {
+                    // watch out for weird du frame with no updates on it? ns property
+                    Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                        chart_session_id,
+                        update_key: update_key.to_string(),
+                        series_updates: None,
+                        study_updates: None
+                    }))
+                }
+            } else if update_key == "st1" || update_key == "st2" { // study
+                let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
+                let st = update_value.get("st").ok_or("failed to get st")?;
+                let st = value_to_array(st)?;
                 Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
                     chart_session_id,
                     update_key: update_key.to_string(),
-                    updates: Some(s)
+                    series_updates: None,
+                    study_updates: Some(st)
                 }))
             } else {
-                // watch out for weird du frame with no updates on it?
-                Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
-                    chart_session_id,
-                    update_key: update_key.to_string(),
-                    updates: None
-                }))
+                todo!("update_key = {update_key}");
             }
         } else if frame_type == "quote_completed" {
             //log::info!("quote_completed = {parsed_frame:?}"); 

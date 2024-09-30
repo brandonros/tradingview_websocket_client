@@ -3,17 +3,71 @@ compile_error!(
     "You must enable either the `futures` or `futures-lite` feature to build this crate."
 );
 
-use std::time::Duration;
-
 #[cfg(feature = "futures")]
 use futures as futures_provider;
 
 #[cfg(feature = "futures-lite")]
 use futures_lite as futures_provider;
 
-use tradingview_client::TradingViewClient;
+use std::sync::Arc;
+use std::time::Duration;
 
-struct TradingViewClientConfig {
+use async_trait::async_trait;
+
+use tradingview_client::{ParsedTradingViewFrame, TradingViewClient, TradingViewFrameProcessor};
+
+struct AsyncFrameProcessor;
+
+#[async_trait]
+impl TradingViewFrameProcessor for AsyncFrameProcessor {
+  async fn process_frame(&self, name: String, frame: ParsedTradingViewFrame) ->() {
+    log::info!("[{name}] process_frame: frame = {frame:?}");
+    match frame {
+      ParsedTradingViewFrame::Ping(nonce) => {
+        log::info!("[{name}] ping nonce = {nonce:?}");
+      },
+      ParsedTradingViewFrame::ServerHello(server_hello_frame) => {
+        log::info!("[{name}] server_hello_frame = {server_hello_frame:?}");
+      },
+      ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
+          log::info!("[{name}] quote_series_data_frame = {quote_series_data_frame:?}");
+      },
+      ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
+          log::info!("[{name}] data_update_frame = {data_update_frame:?}");
+      },
+      ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
+          log::info!("[{name}] quote_completed_frame = {quote_completed_frame:?}");
+      },
+      ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
+          log::info!("[{name}] timescale_updated_frame = {timescale_updated_frame:?}");
+      },
+      ParsedTradingViewFrame::SeriesLoading(series_loading_frame) => {
+          log::info!("[{name}] series_loading_frame = {series_loading_frame:?}");
+      },
+      ParsedTradingViewFrame::SymbolResolved(symbol_resolved_frame) => {
+          log::info!("[{name}] symbol_resolved_frame = {symbol_resolved_frame:?}");
+      },
+      ParsedTradingViewFrame::SeriesCompleted(series_completed_frame) => {
+          log::info!("[{name}] series_completed_frame = {series_completed_frame:?}");
+      },
+      ParsedTradingViewFrame::StudyLoading(study_loading_frame) => {
+          log::info!("[{name}] study_loading_frame = {study_loading_frame:?}");
+      },
+      ParsedTradingViewFrame::StudyError(study_error_frame) => {
+          log::info!("[{name}] study_error_frame = {study_error_frame:?}");
+      },
+      ParsedTradingViewFrame::StudyCompleted(study_completed_frame) => {
+          log::info!("[{name}] study_completed_frame = {study_completed_frame:?}");
+      },
+      ParsedTradingViewFrame::TickmarkUpdate(tickmark_update_frame) => {
+          log::info!("[{name}] tickmark_update_frame = {tickmark_update_frame:?}");
+      },
+    }
+  }
+}
+
+pub struct TradingViewClientConfig
+{
     name: String,
     auth_token: String,
     chart_symbol: String,
@@ -21,9 +75,11 @@ struct TradingViewClientConfig {
     indicators: Vec<String>,
     timeframe: String,
     range: usize,
+    frame_processor: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>>
 }
 
-impl TradingViewClientConfig {
+impl TradingViewClientConfig
+{
     fn to_client(&self) -> TradingViewClient {
         TradingViewClient::new(
             self.name.to_string(),
@@ -33,6 +89,7 @@ impl TradingViewClientConfig {
             self.indicators.clone(),
             self.timeframe.to_string(),
             self.range,
+            self.frame_processor.clone()
         )
     }
 }
@@ -90,29 +147,13 @@ fn main() {
     // init env vars
     dotenvy::from_filename("./.env").expect("failed to load env vars");
     let auth_token = std::env::var("AUTH_TOKEN").expect("failed to get AUTH_TOKEN");
+
+    // build frame processor
+    let frame_processor1: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>> = Arc::new(Box::new(AsyncFrameProcessor {}));
+    let frame_processor2: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>> = Arc::new(Box::new(AsyncFrameProcessor {}));
         
     // build clients
-    let clients = vec![
-        TradingViewClientConfig {
-            name: "BTC5".to_string(),
-            auth_token: auth_token.clone(),
-            chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BTCUSDT\"}"#.to_string(),
-            quote_symbol: "BINANCE:BTCUSDT".to_string(),
-            indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
-            timeframe: "5".to_string(),
-            range: 300,
-        }.to_client(),
-        
-        TradingViewClientConfig {
-            name: "BONK5".to_string(),
-            auth_token: auth_token.clone(),
-            chart_symbol: r#"={\"adjustment\":\"splits\",\"symbol\":\"BINANCE:BONKUSDT\"}"#.to_string(),
-            quote_symbol: "BINANCE:BONKUSDT".to_string(),
-            indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
-            timeframe: "5".to_string(),
-            range: 300,
-        }.to_client(),
-
+    let configs = vec![
         TradingViewClientConfig {
             name: "SPY5".to_string(),
             auth_token: auth_token.clone(),
@@ -121,24 +162,27 @@ fn main() {
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
-        }.to_client(),
+            frame_processor: frame_processor1.clone()
+        },
 
         TradingViewClientConfig {
-            name: "ES1".to_string(),
-            auth_token: auth_token.clone(),            
-            chart_symbol: r#"={\"adjustment\":\"splits\",\"session\":\"regular\",\"symbol\":\"CME_MINI:ES1!\"}"#.to_string(),
-            quote_symbol: "CME_MINI:ES1!".to_string(),
+            name: "SPY5EXT".to_string(),
+            auth_token: auth_token.clone(),
+            chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
+            quote_symbol: "AMEX:SPY".to_string(),
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
-        }.to_client(),
+            frame_processor: frame_processor2.clone()
+        },
     ];
 
     // spawn clients on threads
     let mut handles = vec![];
-    for client in clients {
+    for config in configs {
         handles.push(std::thread::spawn(move || {
             futures_provider::future::block_on(async {
+                let client = config.to_client();
                 client.run().await
             })
         }));

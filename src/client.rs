@@ -14,19 +14,23 @@ use crate::futures_provider::io::{BufReader, BufWriter};
 use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::frame_wrapper::TradingViewFrameWrapper;
+use crate::frame_processor::TradingViewFrameProcessor;
 
-pub struct TradingViewClient {
+pub struct TradingViewClient
+{
     name: String,
     auth_token: String,
     chart_symbol: String,
     quote_symbol: String,
     indicators: Vec<String>,
     timeframe: String,
-    range: usize
+    range: usize,
+    frame_processor: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>>
 }
 
-impl TradingViewClient {
-    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize) -> Self {
+impl TradingViewClient
+{
+    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize, frame_processor: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>>) -> Self {
         Self {
             name,
             auth_token,
@@ -34,7 +38,8 @@ impl TradingViewClient {
             quote_symbol,
             indicators,
             timeframe,
-            range
+            range,
+            frame_processor
         }
     }
 
@@ -149,7 +154,7 @@ impl TradingViewClient {
         log::info!("series_loading_frame = {series_loading_frame:?}");
 
         // wait for timescale update frame
-        let timescale_update_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("timescale_update"))))
+        let timescale_update_frame = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("timescale_update"))))
             .await
             .expect("timed out")
             .expect("failed to get timesale update frame");
@@ -257,49 +262,16 @@ impl TradingViewClient {
             let frame_result = utilities::wait_for_message(buffer_arc.clone(), |_| true).await;
             match frame_result {
                 Some(frame) => {
-                    log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
                     let parsed_frame = ParsedTradingViewFrame::from_string(&frame.payload).expect("failed to parse frame");
-                    match parsed_frame {
+                    match &parsed_frame {
                         ParsedTradingViewFrame::Ping(nonce) => {
                             log::info!("ping nonce = {nonce}");
-                            tv_writer.pong(nonce).await.expect("failed to pong");
+                            tv_writer.pong(*nonce).await.expect("failed to pong");
                         },
-                        ParsedTradingViewFrame::ServerHello(server_hello_frame) => {
-                            log::info!("server_hello_frame = {server_hello_frame:?}");
-                        },
-                        ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
-                            log::info!("quote_series_data_frame = {quote_series_data_frame:?}");
-                        },
-                        ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
-                            log::info!("data_update_frame = {data_update_frame:?}");
-                        },
-                        ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
-                            log::info!("quote_completed_frame = {quote_completed_frame:?}");
-                        },
-                        ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
-                            log::info!("timescale_updated_frame = {timescale_updated_frame:?}");
-                        },
-                        ParsedTradingViewFrame::SeriesLoading(series_loading_frame) => {
-                            log::info!("series_loading_frame = {series_loading_frame:?}");
-                        },
-                        ParsedTradingViewFrame::SymbolResolved(symbol_resolved_frame) => {
-                            log::info!("symbol_resolved_frame = {symbol_resolved_frame:?}");
-                        },
-                        ParsedTradingViewFrame::SeriesCompleted(series_completed_frame) => {
-                            log::info!("series_completed_frame = {series_completed_frame:?}");
-                        },
-                        ParsedTradingViewFrame::StudyLoading(study_loading_frame) => {
-                            log::info!("study_loading_frame = {study_loading_frame:?}");
-                        },
-                        ParsedTradingViewFrame::StudyError(study_error_frame) => {
-                            log::info!("study_error_frame = {study_error_frame:?}");
-                        },
-                        ParsedTradingViewFrame::StudyCompleted(study_completed_frame) => {
-                            log::info!("study_completed_frame = {study_completed_frame:?}");
-                        },
-                        ParsedTradingViewFrame::TickmarkUpdate(tickmark_update_frame) => {
-                            log::info!("tickmark_update_frame = {tickmark_update_frame:?}");
-                        },
+                        _ => {
+                            // send to frame processor
+                            self.frame_processor.process_frame(self.name.clone(), parsed_frame).await;
+                        }
                     }
                 },
                 None => panic!("closed")
