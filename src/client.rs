@@ -21,7 +21,7 @@ pub struct TradingViewClient
     name: String,
     auth_token: String,
     chart_symbol: String,
-    quote_symbol: String,
+    quote_symbols: Vec<String>,
     indicators: Vec<String>,
     timeframe: String,
     range: usize,
@@ -30,12 +30,12 @@ pub struct TradingViewClient
 
 impl TradingViewClient
 {
-    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbol: String, indicators: Vec<String>, timeframe: String, range: usize, frame_processor: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>>) -> Self {
+    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbols: Vec<String>, indicators: Vec<String>, timeframe: String, range: usize, frame_processor: Arc<Box<dyn TradingViewFrameProcessor + Send + Sync>>) -> Self {
         Self {
             name,
             auth_token,
             chart_symbol,
-            quote_symbol,
+            quote_symbols,
             indicators,
             timeframe,
             range,
@@ -167,43 +167,21 @@ impl TradingViewClient
             .expect("failed to get series completed frame");
         log::info!("series_completed_frame = {series_completed_frame:?}");
 
-        // chart_symbol quote session
-        {
-            // create quote session
-            let quote_session_id1 = "qs_000000000001";
-            tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
-
-            // set quote session fields
-            tv_writer.quote_set_fields(quote_session_id1).await.expect("failed to set quote fields");
-
-            // add symbol to quote session
-            tv_writer.quote_add_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to add symbol to quote session");
-
-            // turn on quote fast symbols for quote session
-            tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
-
-            // wait for quote completed frame
-            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("quote_completed"))))
-                .await
-                .expect("timed out")
-                .expect("failed to get quote completed frame");
-            log::info!("quote_completed_frame = {quote_completed_frame:?}");
-        }
-
         // quote_symbol quote session
-        {
+        let mut index = 1;
+        for quote_symbol in &self.quote_symbols {
             // create quote session
-            let quote_session_id2 = "qs_000000000002";
-            tv_writer.quote_create_session(quote_session_id2).await.expect("failed to create quote session");
+            let quote_session_id = format!("qs_{index:012}");
+            tv_writer.quote_create_session(&quote_session_id).await.expect("failed to create quote session");
 
             // set quote session fields
-            tv_writer.quote_set_fields(quote_session_id2).await.expect("failed to set quote fields");
+            tv_writer.quote_set_fields(&quote_session_id).await.expect("failed to set quote fields");
 
             // add symbol to quote session
-            tv_writer.quote_add_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to add symbol to quote session");
+            tv_writer.quote_add_symbols(&quote_session_id, &quote_symbol).await.expect("failed to add symbol to quote session");
 
             // turn on quote fast symbols for quote session
-            tv_writer.quote_fast_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to turn on quote fast symbols");
+            tv_writer.quote_fast_symbols(&quote_session_id, &quote_symbol).await.expect("failed to turn on quote fast symbols");
 
             // wait for quote completed frame
             let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("quote_completed"))))
@@ -211,6 +189,9 @@ impl TradingViewClient
                 .expect("timed out")
                 .expect("failed to get quote completed frame");
             log::info!("quote_completed_frame = {quote_completed_frame:?}");
+
+            // increment index
+            index += 1;
         }
 
         // TODO: request more tickmarks from symbol?

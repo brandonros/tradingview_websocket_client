@@ -76,8 +76,8 @@ pub struct QuoteSeriesDataFrame {
 pub struct DataUpdateFrame {
     pub chart_session_id: String,
     pub update_key: String,
-    pub series_updates: Option<Array>,
-    pub study_updates: Option<Array>,
+    pub series_updates: Option<Vec<SeriesUpdate>>,
+    pub study_updates: Option<Vec<StudyUpdate>>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +94,24 @@ pub struct TimescaleUpdate {
     pub high: Number,
     pub low: Number,
     pub close: Number,
+    pub volume: Number,
+}
+
+#[derive(Debug, Clone)]
+pub struct SeriesUpdate {
+    pub index: Number,
+    pub timestamp: Number,
+    pub open: Number,
+    pub high: Number,
+    pub low: Number,
+    pub close: Number,
+    pub volume: Number,
+}
+
+#[derive(Debug, Clone)]
+pub struct StudyUpdate {
+    pub index: Number,
+    pub values: Vec<Number>,
 }
 
 #[derive(Debug, Clone)]
@@ -144,6 +162,16 @@ pub struct TickmarkUpdateFrame {
 }
 
 #[derive(Debug, Clone)]
+pub struct CriticalErrorFrame {
+
+}
+
+#[derive(Debug, Clone)]
+pub struct ProtocolErrorFrame {
+
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedTradingViewFrame {
     ServerHello(ServerHelloFrame),
     Ping(usize),
@@ -158,6 +186,8 @@ pub enum ParsedTradingViewFrame {
     StudyError(StudyErrorFrame),
     StudyCompleted(StudyCompletedFrame),
     TickmarkUpdate(TickmarkUpdateFrame),
+    CriticalError(CriticalErrorFrame),
+    ProtocolError(ProtocolErrorFrame),    
 }
 
 impl ParsedTradingViewFrame {
@@ -241,10 +271,41 @@ impl ParsedTradingViewFrame {
                 if update_value.contains_key("s") {
                     let s = update_value.get("s").ok_or("failed to get s")?;
                     let s = value_to_array(s)?;
+                    let series_updates = s.iter().map(|element| {
+                        // value -> object
+                        let element = value_to_object(&element).expect("failed to cast");
+                        
+                        // pluck i (index)
+                        let i = element.get("i").expect("failed to get i");
+                        let i = value_to_number(i).expect("failed to cast");
+    
+                        // pluck v (values)
+                        let v = element.get("v").expect("failed to get v");
+                        let v = value_to_array(v).expect("failed to cast");
+    
+                        // pluck out of values
+                        let timestamp = value_to_number(&v[0]).expect("failed to cast");
+                        let open = value_to_number(&v[1]).expect("failed to cast");
+                        let high = value_to_number(&v[2]).expect("failed to cast");
+                        let low = value_to_number(&v[3]).expect("failed to cast");
+                        let close = value_to_number(&v[4]).expect("failed to cast");
+                        let volume = value_to_number(&v[5]).expect("failed to cast");
+    
+                        // return
+                        SeriesUpdate {
+                            index: i,
+                            timestamp,
+                            open,
+                            high,
+                            low,
+                            close,
+                            volume,
+                        }
+                    }).collect::<Vec<_>>();
                     Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
                         chart_session_id,
                         update_key: update_key.to_string(),
-                        series_updates: Some(s),
+                        series_updates: Some(series_updates),
                         study_updates: None
                     }))
                 } else {
@@ -260,11 +321,29 @@ impl ParsedTradingViewFrame {
                 let update_value = value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
                 let st = update_value.get("st").ok_or("failed to get st")?;
                 let st = value_to_array(st)?;
+                let study_updates = st.iter().map(|element| {
+                    // value -> object
+                    let element = value_to_object(&element).expect("failed to cast");
+
+                    // pluck i (index)
+                    let i = element.get("i").expect("failed to get i");
+                    let i = value_to_number(i).expect("failed to cast");
+
+                    // pluck v (values)
+                    let v = element.get("v").expect("failed to get v");
+                    let v = value_to_array(v).expect("failed to cast");
+                    let v = v.iter().map(|value| value_to_number(value).expect("failed to cast")).collect::<Vec<_>>();
+
+                    StudyUpdate {
+                        index: i,
+                        values: v
+                    }
+                }).collect::<Vec<_>>();
                 Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
                     chart_session_id,
                     update_key: update_key.to_string(),
                     series_updates: None,
-                    study_updates: Some(st)
+                    study_updates: Some(study_updates)
                 }))
             } else {
                 todo!("update_key = {update_key}");
@@ -320,6 +399,7 @@ impl ParsedTradingViewFrame {
                     let high = value_to_number(&v[2]).expect("failed to cast");
                     let low = value_to_number(&v[3]).expect("failed to cast");
                     let close = value_to_number(&v[4]).expect("failed to cast");
+                    let volume = value_to_number(&v[5]).expect("failed to cast");
 
                     // return
                     TimescaleUpdate {
@@ -329,6 +409,7 @@ impl ParsedTradingViewFrame {
                         high,
                         low,
                         close,
+                        volume,
                     }
                 }).collect::<Vec<_>>();
                 Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
@@ -372,6 +453,16 @@ impl ParsedTradingViewFrame {
         } else if frame_type == "tickmark_update" {
             log::info!("tickmark_update = {parsed_frame:?}");                        
             Ok(ParsedTradingViewFrame::TickmarkUpdate(TickmarkUpdateFrame {
+                
+            }))
+        } else if frame_type == "critical_error" {
+            log::info!("critical_error = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::CriticalError(CriticalErrorFrame {
+                
+            }))
+        } else if frame_type == "protcol_error" {
+            log::info!("protcol_error = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::ProtocolError(ProtocolErrorFrame {
                 
             }))
         } else {

@@ -21,7 +21,6 @@ struct AsyncFrameProcessor;
 #[async_trait]
 impl TradingViewFrameProcessor for AsyncFrameProcessor {
   async fn process_frame(&self, name: String, frame: ParsedTradingViewFrame) ->() {
-    log::info!("[{name}] process_frame: frame = {frame:?}");
     match frame {
       ParsedTradingViewFrame::Ping(nonce) => {
         log::info!("[{name}] ping nonce = {nonce:?}");
@@ -30,37 +29,55 @@ impl TradingViewFrameProcessor for AsyncFrameProcessor {
         log::info!("[{name}] server_hello_frame = {server_hello_frame:?}");
       },
       ParsedTradingViewFrame::QuoteSeriesData(quote_series_data_frame) => {
-          log::info!("[{name}] quote_series_data_frame = {quote_series_data_frame:?}");
+        //log::info!("[{name}] quote_series_data_frame = {quote_series_data_frame:?}");
+        if let Some(last_price) = quote_series_data_frame.update.lp {
+          log::info!("[{name}] last_price = {last_price}");
+        }
+        if let Some(volume) = quote_series_data_frame.update.volume {
+          log::info!("[{name}] volume = {volume}");
+        }
       },
       ParsedTradingViewFrame::DataUpdate(data_update_frame) => {
-          log::info!("[{name}] data_update_frame = {data_update_frame:?}");
+        //log::info!("[{name}] data_update_frame = {data_update_frame:?}");
+        if let Some(series_updates) = data_update_frame.series_updates {
+          log::info!("series_updates = {series_updates:?}");
+        }
+        if let Some(study_updates) = data_update_frame.study_updates {
+          log::info!("study_updates = {study_updates:?}");
+        }
       },
       ParsedTradingViewFrame::QuoteCompleted(quote_completed_frame) => {
-          log::info!("[{name}] quote_completed_frame = {quote_completed_frame:?}");
+        log::info!("[{name}] quote_completed_frame = {quote_completed_frame:?}");
       },
       ParsedTradingViewFrame::TimescaleUpdate(timescale_updated_frame) => {
-          log::info!("[{name}] timescale_updated_frame = {timescale_updated_frame:?}");
+        log::info!("[{name}] timescale_updated_frame = {timescale_updated_frame:?}");
       },
       ParsedTradingViewFrame::SeriesLoading(series_loading_frame) => {
-          log::info!("[{name}] series_loading_frame = {series_loading_frame:?}");
+        log::info!("[{name}] series_loading_frame = {series_loading_frame:?}");
       },
       ParsedTradingViewFrame::SymbolResolved(symbol_resolved_frame) => {
-          log::info!("[{name}] symbol_resolved_frame = {symbol_resolved_frame:?}");
+        log::info!("[{name}] symbol_resolved_frame = {symbol_resolved_frame:?}");
       },
       ParsedTradingViewFrame::SeriesCompleted(series_completed_frame) => {
-          log::info!("[{name}] series_completed_frame = {series_completed_frame:?}");
+        log::info!("[{name}] series_completed_frame = {series_completed_frame:?}");
       },
       ParsedTradingViewFrame::StudyLoading(study_loading_frame) => {
-          log::info!("[{name}] study_loading_frame = {study_loading_frame:?}");
+        log::info!("[{name}] study_loading_frame = {study_loading_frame:?}");
       },
       ParsedTradingViewFrame::StudyError(study_error_frame) => {
-          log::info!("[{name}] study_error_frame = {study_error_frame:?}");
+        log::info!("[{name}] study_error_frame = {study_error_frame:?}");
       },
       ParsedTradingViewFrame::StudyCompleted(study_completed_frame) => {
-          log::info!("[{name}] study_completed_frame = {study_completed_frame:?}");
+        log::info!("[{name}] study_completed_frame = {study_completed_frame:?}");
       },
       ParsedTradingViewFrame::TickmarkUpdate(tickmark_update_frame) => {
-          log::info!("[{name}] tickmark_update_frame = {tickmark_update_frame:?}");
+        log::info!("[{name}] tickmark_update_frame = {tickmark_update_frame:?}");
+      },
+      ParsedTradingViewFrame::CriticalError(critical_error_frame) => {
+        log::info!("[{name}] critical_error_frame = {critical_error_frame:?}");
+      },
+      ParsedTradingViewFrame::ProtocolError(protocol_error_frame) => {
+        log::info!("[{name}] protocol_error_frame = {protocol_error_frame:?}");
       },
     }
   }
@@ -71,7 +88,7 @@ pub struct TradingViewClientConfig
     name: String,
     auth_token: String,
     chart_symbol: String,
-    quote_symbol: String,
+    quote_symbols: Vec<String>,
     indicators: Vec<String>,
     timeframe: String,
     range: usize,
@@ -85,7 +102,7 @@ impl TradingViewClientConfig
             self.name.to_string(),
             self.auth_token.to_string(),
             self.chart_symbol.to_string(),
-            self.quote_symbol.to_string(),
+            self.quote_symbols.clone(),
             self.indicators.clone(),
             self.timeframe.to_string(),
             self.range,
@@ -158,7 +175,7 @@ fn main() {
             name: "SPY5".to_string(),
             auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
-            quote_symbol: "AMEX:SPY".to_string(),
+            quote_symbols: vec!["AMEX:SPY".to_string()],
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
@@ -169,7 +186,7 @@ fn main() {
             name: "SPY5EXT".to_string(),
             auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
-            quote_symbol: "AMEX:SPY".to_string(),
+            quote_symbols: vec![],
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
