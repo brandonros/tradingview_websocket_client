@@ -1,5 +1,7 @@
+use std::sync::Arc;
 use std::time::Duration;
 
+use async_lock::RwLock;
 use http::{Request, Uri, Version};
 use http_client::HttpClient;
 
@@ -38,7 +40,7 @@ impl TradingViewClient {
 
     pub async fn run(&self) {
         // Build the URI for the request
-        let uri: Uri = "wss://data.tradingview.com/socket.io/websocket".parse().expect("Failed to parse URI");
+        let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse().expect("Failed to parse URI");
 
         // Build the GET request
         let request = Request::builder()
@@ -73,8 +75,11 @@ impl TradingViewClient {
         let mut tv_reader = TradingViewReader::new(ws_reader);
         let mut tv_writer = TradingViewWriter::new(ws_writer);
 
-        // channels
-        let (frame_tx, frame_rx) = async_channel::unbounded::<TradingViewFrameWrapper>();
+        // prepare buffer + references
+        let buffer: Vec<TradingViewFrameWrapper> = Vec::new();
+        let buffer = RwLock::new(buffer);
+        let buffer_arc = Arc::new(buffer);
+        let reader_handle_buffer_ref = buffer_arc.clone();
 
         // Spawn the reader task
         let _reader_handle = std::thread::spawn(move || {
@@ -83,7 +88,12 @@ impl TradingViewClient {
                     match tv_reader.read_frame().await {
                         Ok(result) => {
                             match result {
-                                Some(frame) => frame_tx.send(frame).await.expect("failed to send frame"),
+                                Some(frame) => {
+                                    // add frame to buffer
+                                    let mut write_lock = reader_handle_buffer_ref.write().await;
+                                    write_lock.push(frame);
+                                    drop(write_lock);
+                                },
                                 None => panic!("received none"),
                             }
                         },
@@ -92,12 +102,9 @@ impl TradingViewClient {
                 }
             })
         });
-
-        // Introduce the buffer
-        let mut buffer = Vec::new();
         
         // Wait for server hello frame with timeout
-        let server_hello_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| frame.payload.contains("javastudies"))))
+        let server_hello_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("javastudies"))))
             .await
             .expect("timed out")
             .expect("failed to get server hello frame");
@@ -113,38 +120,50 @@ impl TradingViewClient {
         let chart_session_id1 = "cs_000000000001";
         tv_writer.chart_create_session(chart_session_id1).await.expect("failed to create chart session");
 
+        // quote_create_session
+        // quote_add_symbols symbol with session in it
+
         // resolve symbol
         let symbol_id = "sds_sym_1";
         tv_writer.resolve_symbol(chart_session_id1, symbol_id, &self.chart_symbol).await.expect("failed to add symbol to resolve symbol");
 
-        // switch chart timezone
-        tv_writer.switch_timezone(chart_session_id1, "exchange").await.expect("failed to switch chart timezone");
+        // wait for symbol resolved frame
+        let symbol_resolved_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("symbol_resolved"))))
+            .await
+            .expect("timed out")
+            .expect("failed to get symbol resolved frame");
+        log::info!("symbol_resolved_frame = {symbol_resolved_frame:?}");
 
         // add symbol to chart session as series
         let series_id = "sds_1";
         tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await.expect("failed to create series");
 
-         // wait for series loading frame
-         let series_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
-            log::info!("frame = {frame:?}");
-            frame.payload.contains("series_loading")
-        })))
+        // switch chart timezone
+        tv_writer.switch_timezone(chart_session_id1, "exchange").await.expect("failed to switch chart timezone");
+
+        // wait for series loading frame
+        let series_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("series_loading"))))
             .await
             .expect("timed out")
             .expect("failed to get series loading frame");
         log::info!("series_loading_frame = {series_loading_frame:?}");
 
+        // wait for timescale update frame
+        let timescale_update_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("timescale_update"))))
+            .await
+            .expect("timed out")
+            .expect("failed to get timesale update frame");
+        log::info!("timescale_update_frame = {timescale_update_frame:?}");
+
         // wait for series completed frame
-        let series_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
-            log::info!("frame = {frame:?}");
-            frame.payload.contains("series_completed")
-        })))
+        let series_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("series_completed"))))
             .await
             .expect("timed out")
             .expect("failed to get series completed frame");
         log::info!("series_completed_frame = {series_completed_frame:?}");
 
-        /*{
+        // chart_symbol quote session
+        {
             // create quote session
             let quote_session_id1 = "qs_000000000001";
             tv_writer.quote_create_session(quote_session_id1).await.expect("failed to create quote session");
@@ -159,16 +178,14 @@ impl TradingViewClient {
             tv_writer.quote_fast_symbols(quote_session_id1, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
 
             // wait for quote completed frame
-            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
-                log::info!("frame = {frame:?}");
-                frame.payload.contains("quote_completed")
-            })))
+            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("quote_completed"))))
                 .await
                 .expect("timed out")
                 .expect("failed to get quote completed frame");
             log::info!("quote_completed_frame = {quote_completed_frame:?}");
         }
 
+        // quote_symbol quote session
         {
             // create quote session
             let quote_session_id2 = "qs_000000000002";
@@ -181,18 +198,15 @@ impl TradingViewClient {
             tv_writer.quote_add_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to add symbol to quote session");
 
             // turn on quote fast symbols for quote session
-            tv_writer.quote_fast_symbols(quote_session_id2, &self.chart_symbol).await.expect("failed to turn on quote fast symbols");
+            tv_writer.quote_fast_symbols(quote_session_id2, &self.quote_symbol).await.expect("failed to turn on quote fast symbols");
 
             // wait for quote completed frame
-            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
-                log::info!("frame = {frame:?}");
-                frame.payload.contains("quote_completed")
-            })))
+            let quote_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("quote_completed"))))
                 .await
                 .expect("timed out")
                 .expect("failed to get quote completed frame");
             log::info!("quote_completed_frame = {quote_completed_frame:?}");
-        }*/
+        }
 
         // TODO: request more tickmarks from symbol?
 
@@ -201,11 +215,15 @@ impl TradingViewClient {
             let study_session_id = "st1";
             tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
 
+            // wait for study loading frame
+            let study_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("study_loading"))))
+                .await
+                .expect("timed out")
+                .expect("failed to get study loading frame");
+            log::info!("study_loading_frame = {study_loading_frame:?}");
+
             // wait for study completed frame
-            let study_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(&frame_rx, &mut buffer, |frame| {
-                log::info!("frame = {frame:?}");
-                frame.payload.contains("study_completed")
-            })))
+            let study_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("study_completed"))))
                 .await
                 .expect("timed out")
                 .expect("failed to get study completed frame");
@@ -217,12 +235,26 @@ impl TradingViewClient {
                 let study_id = format!("st{index}");
                 tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
                 index += 1;
+
+                // wait for study loading frame
+                let study_loading_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("study_loading"))))
+                    .await
+                    .expect("timed out")
+                    .expect("failed to get study loading frame");
+                log::info!("study_loading_frame = {study_loading_frame:?}");
+
+                // wait for study completed frame
+                let study_completed_frame = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |frame| frame.payload.contains("study_completed"))))
+                    .await
+                    .expect("timed out")
+                    .expect("failed to get study completed frame");
+                log::info!("study_completed_frame = {study_completed_frame:?}");
             }
         }
 
         // read all frames
         loop {
-            let frame_result = utilities::wait_for_message(&frame_rx, &mut buffer, |_| true).await;
+            let frame_result = utilities::wait_for_message(buffer_arc.clone(), |_| true).await;
             match frame_result {
                 Some(frame) => {
                     log::info!("[{}]: frame_payload = {}", self.name, frame.payload);
@@ -264,6 +296,9 @@ impl TradingViewClient {
                         },
                         ParsedTradingViewFrame::StudyCompleted(study_completed_frame) => {
                             log::info!("study_completed_frame = {study_completed_frame:?}");
+                        },
+                        ParsedTradingViewFrame::TickmarkUpdate(tickmark_update_frame) => {
+                            log::info!("tickmark_update_frame = {tickmark_update_frame:?}");
                         },
                     }
                 },

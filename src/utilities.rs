@@ -1,6 +1,7 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use async_io::Timer;
+use async_lock::RwLock;
 
 use crate::futures_provider;
 
@@ -16,23 +17,26 @@ where
 }
 
 pub async fn wait_for_message<F, T>(
-    frame_rx: &async_channel::Receiver<T>,
-    buffer: &mut Vec<T>,
+    buffer: Arc<RwLock<Vec<T>>>,
     condition: F,
 ) -> Option<T>
 where
     F: Fn(&T) -> bool,
 {
     loop {
-        match frame_rx.recv().await {
-            Ok(frame) => {
-                if condition(&frame) {
-                    return Some(frame);
-                } else {
-                    buffer.push(frame);
-                }
-            }
-            Err(_) => return None, // Channel closed
+        let read_lock = buffer.read().await;
+        if let Some(index) = read_lock.iter().position(|e| condition(e)) {
+            // Drop the read lock before acquiring a write lock
+            drop(read_lock);
+
+            // Acquire write lock
+            let mut write_lock = buffer.write().await;
+
+            // Remove the item from the buffer
+            return Some(write_lock.remove(index));
+        } else {
+            drop(read_lock);
+            Timer::after(Duration::from_millis(1)).await;
         }
     }
 }

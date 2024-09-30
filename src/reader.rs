@@ -34,10 +34,9 @@ where
             }
 
             // Need more data; read the next WebSocket frame
-            match self.reader.read_frame().await? {
-                Some(ws_frame) => {
-                    // Append the payload to the tv_buffer
-                    self.buffer.extend_from_slice(&ws_frame.payload);
+            match self.reader.read_message().await? {
+                Some(ws_message) => {
+                    self.buffer.extend_from_slice(&ws_message.payload_buffer);
                 }
                 None => {
                     // No more WebSocket frames

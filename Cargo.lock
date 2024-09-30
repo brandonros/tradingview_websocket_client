@@ -729,6 +729,7 @@ version = "0.1.0"
 dependencies = [
  "async-channel",
  "async-io",
+ "async-lock",
  "bytes",
  "dotenvy",
  "env_logger",
@@ -789,7 +790,7 @@ dependencies = [
 [[package]]
 name = "websocket_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/websocket_client.git?rev=370b83d34e975420660a836e1fc9dc246de147c2#370b83d34e975420660a836e1fc9dc246de147c2"
+source = "git+https://github.com/brandonros/websocket_client.git?rev=013815a13de23881f98b3c9e346ab2ce7be4e0b2#013815a13de23881f98b3c9e346ab2ce7be4e0b2"
 dependencies = [
  "async-io",
  "async-tls",

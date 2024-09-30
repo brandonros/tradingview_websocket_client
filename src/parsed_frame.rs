@@ -138,6 +138,11 @@ pub struct StudyCompletedFrame {
 }
 
 #[derive(Debug, Clone)]
+pub struct TickmarkUpdateFrame {
+
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedTradingViewFrame {
     ServerHello(ServerHelloFrame),
     Ping(usize),
@@ -151,6 +156,7 @@ pub enum ParsedTradingViewFrame {
     StudyLoading(StudyLoadingFrame),
     StudyError(StudyErrorFrame),
     StudyCompleted(StudyCompletedFrame),
+    TickmarkUpdate(TickmarkUpdateFrame),
 }
 
 impl ParsedTradingViewFrame {
@@ -246,7 +252,6 @@ impl ParsedTradingViewFrame {
                     updates: None
                 }))
             }
-            
         } else if frame_type == "quote_completed" {
             //log::info!("quote_completed = {parsed_frame:?}"); 
             let p = parsed_frame.get("p").ok_or("failed to get p")?;
@@ -345,6 +350,11 @@ impl ParsedTradingViewFrame {
         } else if frame_type == "study_completed" {
             log::info!("study_completed = {parsed_frame:?}");                        
             Ok(ParsedTradingViewFrame::StudyCompleted(StudyCompletedFrame {
+                
+            }))
+        } else if frame_type == "tickmark_update" {
+            log::info!("tickmark_update = {parsed_frame:?}");                        
+            Ok(ParsedTradingViewFrame::TickmarkUpdate(TickmarkUpdateFrame {
                 
             }))
         } else {
