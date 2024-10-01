@@ -314,7 +314,7 @@ dependencies = [
 [[package]]
 name = "http_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/http_client.git?rev=60bde76d4d80379762758d32ff7bfecaf6c58a12#60bde76d4d80379762758d32ff7bfecaf6c58a12"
+source = "git+https://github.com/brandonros/http_client.git?rev=52cf9005c87ff069a098af9365dcd7a60e276792#52cf9005c87ff069a098af9365dcd7a60e276792"
 dependencies = [
  "async-io",
  "async-tls",
@@ -704,7 +704,7 @@ dependencies = [
 [[package]]
 name = "websocket_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/websocket_client.git?rev=66554910607f2aa7c16052a7bdd0991ce861b8d4#66554910607f2aa7c16052a7bdd0991ce861b8d4"
+source = "git+https://github.com/brandonros/websocket_client.git?rev=c66360be416cecf26b1ff2579e65e99d8131f3a6#c66360be416cecf26b1ff2579e65e99d8131f3a6"
 dependencies = [
  "async-io",
  "async-tls",
