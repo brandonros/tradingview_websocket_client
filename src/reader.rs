@@ -2,14 +2,14 @@ use websocket_client::WebSocketReader;
 use bytes::{Buf, BytesMut};
 
 use crate::futures_provider::io::AsyncRead;
-use crate::frame_wrapper::TradingViewFrameWrapper;
+use crate::message_wrapper::TradingViewMessageWrapper;
 use crate::types::Result;
 
 pub struct TradingViewReader<R>
 where
     R: AsyncRead + Unpin,
 {
-    reader: WebSocketReader<R>,
+    ws_reader: WebSocketReader<R>,
     buffer: BytesMut,
 }
 
@@ -18,34 +18,34 @@ where
     R: AsyncRead + Unpin,
 {
     /// Creates a new `TradingViewReader` with the given `WebSocketReader`.
-    pub fn new(reader: WebSocketReader<R>) -> Self {
+    pub fn new(ws_reader: WebSocketReader<R>) -> Self {
         Self {
-            reader,
+            ws_reader,
             buffer: BytesMut::with_capacity(1024 * 1024),
         }
     }
 
-    /// Reads the next TradingView frame, handling partial frames and buffering.
-    pub async fn read_frame(&mut self) -> Result<Option<TradingViewFrameWrapper>> {
+    /// Reads the next TradingView message, handling partial messages and buffering.
+    pub async fn read_message(&mut self) -> Result<Option<TradingViewMessageWrapper>> {
         loop {
-            // Try to parse a TradingView frame from the tv_buffer
-            if let Some(frame) = self.parse_frame()? {
-                return Ok(Some(frame));
+            // Try to parse a TradingView message from the tv_buffer
+            if let Some(message) = self.parse_message()? {
+                return Ok(Some(message));
             }
 
-            // Need more data; read the next WebSocket frame
-            match self.reader.read_message().await? {
+            // Need more data; read the next WebSocket message
+            match self.ws_reader.read_message().await? {
                 Some(ws_message) => {
                     self.buffer.extend_from_slice(&ws_message.payload_buffer);
                 }
                 None => {
-                    // No more WebSocket frames
+                    // No more WebSocket messages
                     if self.buffer.is_empty() {
                         return Ok(None);
                     } else {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::UnexpectedEof,
-                            "Stream closed with incomplete TradingView frame",
+                            "Stream closed with incomplete TradingView message",
                         )
                         .into());
                     }
@@ -54,20 +54,20 @@ where
         }
     }
 
-    /// Parses a TradingView frame from the buffer.
-    fn parse_frame(&mut self) -> Result<Option<TradingViewFrameWrapper>> {
+    /// Parses a TradingView message from the buffer.
+    fn parse_message(&mut self) -> Result<Option<TradingViewMessageWrapper>> {
         if self.buffer.is_empty() {
             return Ok(None);
         }
 
         let input = &self.buffer[..];
 
-        match TradingViewFrameWrapper::parse(input) {
-            Ok((remaining, frame)) => {
+        match TradingViewMessageWrapper::parse(input) {
+            Ok((remaining, message)) => {
                 let parsed_len = input.len() - remaining.len();
                 self.buffer.advance(parsed_len);
 
-                Ok(Some(frame))
+                Ok(Some(message))
             }
             Err(nom::Err::Incomplete(_)) => {
                 // Not enough data, need to read more

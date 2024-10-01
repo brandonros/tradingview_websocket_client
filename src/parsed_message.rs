@@ -67,13 +67,13 @@ pub struct QuoteSeriesDataUpdate {
 }
 
 #[derive(Debug, Clone)]
-pub struct QuoteSeriesDataFrame {
+pub struct QuoteSeriesDataMessage {
     pub quote_session_id: String,
     pub update: QuoteSeriesDataUpdate,
 }
 
 #[derive(Debug, Clone)]
-pub struct DataUpdateFrame {
+pub struct DataUpdateMessage {
     pub chart_session_id: String,
     pub update_key: String,
     pub series_updates: Option<Vec<SeriesUpdate>>,
@@ -81,7 +81,7 @@ pub struct DataUpdateFrame {
 }
 
 #[derive(Debug, Clone)]
-pub struct QuoteCompletedFrame {
+pub struct QuoteCompletedMessage {
     pub quote_session_id: String,
     pub symbol: String,
 }
@@ -115,106 +115,106 @@ pub struct StudyUpdate {
 }
 
 #[derive(Debug, Clone)]
-pub struct TimescaleUpdatedFrame {
+pub struct TimescaleUpdatedMessage {
     pub chart_session_id: String,
     pub update_key: Option<String>,
     pub updates: Option<Vec<TimescaleUpdate>>
 }
 
 #[derive(Debug, Clone)]
-pub struct ServerHelloFrame {
+pub struct ServerHelloMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct SeriesLoadingFrame {
+pub struct SeriesLoadingMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct SymbolResolvedFrame {
+pub struct SymbolResolvedMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct SeriesCompletedFrame {
+pub struct SeriesCompletedMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct StudyLoadingFrame {
+pub struct StudyLoadingMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct StudyErrorFrame {
+pub struct StudyErrorMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct StudyCompletedFrame {
+pub struct StudyCompletedMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct TickmarkUpdateFrame {
+pub struct TickmarkUpdateMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct CriticalErrorFrame {
+pub struct CriticalErrorMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub struct ProtocolErrorFrame {
+pub struct ProtocolErrorMessage {
 
 }
 
 #[derive(Debug, Clone)]
-pub enum ParsedTradingViewFrame {
-    ServerHello(ServerHelloFrame),
+pub enum ParsedTradingViewMessage {
+    ServerHello(ServerHelloMessage),
     Ping(usize),
-    QuoteSeriesData(QuoteSeriesDataFrame),
-    DataUpdate(DataUpdateFrame),
-    QuoteCompleted(QuoteCompletedFrame),
-    TimescaleUpdate(TimescaleUpdatedFrame),
-    SeriesLoading(SeriesLoadingFrame),
-    SymbolResolved(SymbolResolvedFrame),
-    SeriesCompleted(SeriesCompletedFrame),
-    StudyLoading(StudyLoadingFrame),
-    StudyError(StudyErrorFrame),
-    StudyCompleted(StudyCompletedFrame),
-    TickmarkUpdate(TickmarkUpdateFrame),
-    CriticalError(CriticalErrorFrame),
-    ProtocolError(ProtocolErrorFrame),    
+    QuoteSeriesData(QuoteSeriesDataMessage),
+    DataUpdate(DataUpdateMessage),
+    QuoteCompleted(QuoteCompletedMessage),
+    TimescaleUpdate(TimescaleUpdatedMessage),
+    SeriesLoading(SeriesLoadingMessage),
+    SymbolResolved(SymbolResolvedMessage),
+    SeriesCompleted(SeriesCompletedMessage),
+    StudyLoading(StudyLoadingMessage),
+    StudyError(StudyErrorMessage),
+    StudyCompleted(StudyCompletedMessage),
+    TickmarkUpdate(TickmarkUpdateMessage),
+    CriticalError(CriticalErrorMessage),
+    ProtocolError(ProtocolErrorMessage),
 }
 
-impl ParsedTradingViewFrame {
+impl ParsedTradingViewMessage {
     pub fn from_string(value: &str) -> Result<Self> {
-        // ping frames are not json
+        // ping messages are not json
         if value.starts_with("~h~") {
             let nonce_str = &value[3..];
             let nonce = nonce_str.parse::<usize>().map_err(|_| "failed to parse nonce")?;
-            return Ok(ParsedTradingViewFrame::Ping(nonce));
+            return Ok(ParsedTradingViewMessage::Ping(nonce));
         }
 
-        // all other frames are json
-        let parsed_frame: miniserde::json::Object = miniserde::json::from_str(&value)?;
+        // all other messages are json
+        let parsed_message: Object = miniserde::json::from_str(&value)?;
 
-        // check for server hello frame
-        if parsed_frame.contains_key("javastudies") {
-            return Ok(ParsedTradingViewFrame::ServerHello(ServerHelloFrame {  
+        // check for server hello message
+        if parsed_message.contains_key("javastudies") {
+            return Ok(ParsedTradingViewMessage::ServerHello(ServerHelloMessage {
 
             }));
         }
         
-        // all other frames have m property
-        let frame_type = parsed_frame.get("m").ok_or("failed to get frame_type")?;
-        let frame_type = value_to_string(frame_type)?;
-        if frame_type == "qsd" {
-            //log::info!("qsd = {parsed_frame:?}");
-            let p = parsed_frame.get("p").ok_or("failed to get p")?;
+        // all other messages have m property
+        let message_type = parsed_message.get("m").ok_or("failed to get message_type")?;
+        let message_type = value_to_string(message_type)?;
+        if message_type == "qsd" {
+            //log::info!("qsd = {parsed_message:?}");
+            let p = parsed_message.get("p").ok_or("failed to get p")?;
             let p = value_to_array(p)?;
             let quote_session_id = &p[0];
             let quote_session_id = value_to_string(&quote_session_id)?;
@@ -251,13 +251,13 @@ impl ParsedTradingViewFrame {
 
                 // TODO: more fields?
             };
-            Ok(ParsedTradingViewFrame::QuoteSeriesData(QuoteSeriesDataFrame {
+            Ok(ParsedTradingViewMessage::QuoteSeriesData(QuoteSeriesDataMessage {
                 quote_session_id,
                 update: quote_series_data_update
             }))
-        } else if frame_type == "du" {
-            //log::info!("du = {parsed_frame:?}");   
-            let p = parsed_frame.get("p").ok_or("failed to get p")?;
+        } else if message_type == "du" {
+            //log::info!("du = {parsed_message:?}");
+            let p = parsed_message.get("p").ok_or("failed to get p")?;
             let p = value_to_array(p)?;
             let chart_session_id = &p[0];
             let chart_session_id = value_to_string(&chart_session_id)?;
@@ -302,15 +302,15 @@ impl ParsedTradingViewFrame {
                             volume,
                         }
                     }).collect::<Vec<_>>();
-                    Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                    Ok(ParsedTradingViewMessage::DataUpdate(DataUpdateMessage {
                         chart_session_id,
                         update_key: update_key.to_string(),
                         series_updates: Some(series_updates),
                         study_updates: None
                     }))
                 } else {
-                    // watch out for weird du frame with no updates on it? ns property
-                    Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                    // watch out for weird du message with no updates on it? ns property
+                    Ok(ParsedTradingViewMessage::DataUpdate(DataUpdateMessage {
                         chart_session_id,
                         update_key: update_key.to_string(),
                         series_updates: None,
@@ -339,7 +339,7 @@ impl ParsedTradingViewFrame {
                         values: v
                     }
                 }).collect::<Vec<_>>();
-                Ok(ParsedTradingViewFrame::DataUpdate(DataUpdateFrame {
+                Ok(ParsedTradingViewMessage::DataUpdate(DataUpdateMessage {
                     chart_session_id,
                     update_key: update_key.to_string(),
                     series_updates: None,
@@ -348,21 +348,21 @@ impl ParsedTradingViewFrame {
             } else {
                 todo!("update_key = {update_key}");
             }
-        } else if frame_type == "quote_completed" {
-            //log::info!("quote_completed = {parsed_frame:?}"); 
-            let p = parsed_frame.get("p").ok_or("failed to get p")?;
+        } else if message_type == "quote_completed" {
+            //log::info!("quote_completed = {parsed_message:?}");
+            let p = parsed_message.get("p").ok_or("failed to get p")?;
             let p = value_to_array(p)?;
             let quote_session_id = &p[0];
             let quote_session_id = value_to_string(&quote_session_id)?;
             let symbol = &p[1];
             let symbol = value_to_string(&symbol)?;
-            Ok(ParsedTradingViewFrame::QuoteCompleted(QuoteCompletedFrame {
+            Ok(ParsedTradingViewMessage::QuoteCompleted(QuoteCompletedMessage {
                 quote_session_id,
                 symbol
             }))
-        } else if frame_type == "timescale_update" {
-            //log::info!("timescale_update parsed_frame = {parsed_frame:?}");    
-            let p = parsed_frame.get("p").ok_or("failed to get p")?;
+        } else if message_type == "timescale_update" {
+            //log::info!("timescale_update parsed_message = {parsed_message:?}");
+            let p = parsed_message.get("p").ok_or("failed to get p")?;
             let p = value_to_array(p)?;
             let chart_session_id = &p[0];
             let chart_session_id = value_to_string(&chart_session_id)?;
@@ -371,7 +371,7 @@ impl ParsedTradingViewFrame {
             let update_keys = update.keys().collect::<Vec<&String>>();
             if update_keys.len() == 0 {
                 // weird timescale_update with index/zoffset/changes/marks but nothing of any interest/importance
-                Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
+                Ok(ParsedTradingViewMessage::TimescaleUpdate(TimescaleUpdatedMessage {
                     chart_session_id,
                     update_key: None,
                     updates: None
@@ -412,7 +412,7 @@ impl ParsedTradingViewFrame {
                         volume,
                     }
                 }).collect::<Vec<_>>();
-                Ok(ParsedTradingViewFrame::TimescaleUpdate(TimescaleUpdatedFrame {
+                Ok(ParsedTradingViewMessage::TimescaleUpdate(TimescaleUpdatedMessage {
                     chart_session_id,
                     update_key: Some(update_key.to_string()),
                     updates: Some(timescale_updates)
@@ -420,53 +420,53 @@ impl ParsedTradingViewFrame {
             } else {
                 unimplemented!()
             }
-        } else if frame_type == "series_loading" {
-            log::info!("series_loading = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::SeriesLoading(SeriesLoadingFrame {
+        } else if message_type == "series_loading" {
+            log::info!("series_loading = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::SeriesLoading(SeriesLoadingMessage {
                 
             }))
-        } else if frame_type == "symbol_resolved" {
-            log::info!("symbol_resolved = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::SymbolResolved(SymbolResolvedFrame {
+        } else if message_type == "symbol_resolved" {
+            log::info!("symbol_resolved = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::SymbolResolved(SymbolResolvedMessage {
                 
             }))
-        } else if frame_type == "series_completed" {
-            log::info!("series_completed = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::SeriesCompleted(SeriesCompletedFrame {
+        } else if message_type == "series_completed" {
+            log::info!("series_completed = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::SeriesCompleted(SeriesCompletedMessage {
                 
             }))
-        } else if frame_type == "study_loading" {
-            log::info!("study_loading = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::StudyLoading(StudyLoadingFrame {
+        } else if message_type == "study_loading" {
+            log::info!("study_loading = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::StudyLoading(StudyLoadingMessage {
                 
             }))
-        } else if frame_type == "study_error" {
-            log::info!("study_error = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::StudyError(StudyErrorFrame {
+        } else if message_type == "study_error" {
+            log::info!("study_error = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::StudyError(StudyErrorMessage {
                 
             }))
-        } else if frame_type == "study_completed" {
-            log::info!("study_completed = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::StudyCompleted(StudyCompletedFrame {
+        } else if message_type == "study_completed" {
+            log::info!("study_completed = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::StudyCompleted(StudyCompletedMessage {
                 
             }))
-        } else if frame_type == "tickmark_update" {
-            log::info!("tickmark_update = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::TickmarkUpdate(TickmarkUpdateFrame {
+        } else if message_type == "tickmark_update" {
+            log::info!("tickmark_update = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::TickmarkUpdate(TickmarkUpdateMessage {
                 
             }))
-        } else if frame_type == "critical_error" {
-            log::info!("critical_error = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::CriticalError(CriticalErrorFrame {
+        } else if message_type == "critical_error" {
+            log::info!("critical_error = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::CriticalError(CriticalErrorMessage {
                 
             }))
-        } else if frame_type == "protcol_error" {
-            log::info!("protcol_error = {parsed_frame:?}");                        
-            Ok(ParsedTradingViewFrame::ProtocolError(ProtocolErrorFrame {
+        } else if message_type == "protcol_error" {
+            log::info!("protcol_error = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::ProtocolError(ProtocolErrorMessage {
                 
             }))
         } else {
-            unimplemented!("frame_type = {frame_type}")
+            unimplemented!("message_type = {message_type}")
         }
     }
 }

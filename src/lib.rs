@@ -1,16 +1,16 @@
 mod futures_provider;
-mod frame_wrapper;
+mod message_wrapper;
 mod reader;
 mod writer;
 mod types;
 mod client;
 mod utilities;
-mod parsed_frame;
-mod frame_processor;
+mod parsed_message;
+mod message_processor;
 
 pub use reader::*;
 pub use writer::*;
-pub use frame_wrapper::*;
+pub use message_wrapper::*;
 pub use client::*;
-pub use parsed_frame::*;
-pub use frame_processor::*;
+pub use parsed_message::*;
+pub use message_processor::*;
