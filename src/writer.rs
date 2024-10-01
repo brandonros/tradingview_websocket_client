@@ -26,7 +26,7 @@ where
         let tv_message = TradingViewMessageWrapper::serialize(message);
         log::debug!("write_message: tv_message = {tv_message}");
         // TODO: write_frame -> write_message
-        self.ws_writer.write_frame(&tv_message).await
+        self.ws_writer.write_text_message(&tv_message).await
     }
 
     pub async fn set_auth_token(&mut self, auth_token: &str) -> Result<()> {

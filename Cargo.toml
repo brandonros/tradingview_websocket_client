@@ -21,7 +21,7 @@ log = "0.4.20"
 bytes = "1.7.2"
 nom = "7.1.3"
 # websocket
-websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "013815a13de23881f98b3c9e346ab2ce7be4e0b2" }
+websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "66554910607f2aa7c16052a7bdd0991ce861b8d4" }
 # http
 http = "1.0.0"
 http_client = { git = "https://github.com/brandonros/http_client.git", rev = "60bde76d4d80379762758d32ff7bfecaf6c58a12" }

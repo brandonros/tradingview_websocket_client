@@ -788,7 +788,7 @@ dependencies = [
 [[package]]
 name = "websocket_client"
 version = "0.1.0"
-source = "git+https://github.com/brandonros/websocket_client.git?rev=013815a13de23881f98b3c9e346ab2ce7be4e0b2#013815a13de23881f98b3c9e346ab2ce7be4e0b2"
+source = "git+https://github.com/brandonros/websocket_client.git?rev=66554910607f2aa7c16052a7bdd0991ce861b8d4#66554910607f2aa7c16052a7bdd0991ce861b8d4"
 dependencies = [
  "async-io",
  "async-tls",
