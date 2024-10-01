@@ -1,14 +1,3 @@
-#[cfg(not(any(feature = "futures", feature = "futures-lite")))]
-compile_error!(
-    "You must enable either the `futures` or `futures-lite` feature to build this crate."
-);
-
-#[cfg(feature = "futures")]
-use futures as futures_provider;
-
-#[cfg(feature = "futures-lite")]
-use futures_lite as futures_provider;
-
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -203,7 +192,7 @@ fn main() {
     let mut handles = vec![];
     for config in configs {
         handles.push(std::thread::spawn(move || {
-            futures_provider::future::block_on(async {
+            futures_lite::future::block_on(async {
                 let client = config.to_client();
                 client.run().await
             })

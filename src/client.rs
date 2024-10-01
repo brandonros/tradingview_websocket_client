@@ -6,11 +6,10 @@ use http::{Request, Uri, Version};
 use http_client::HttpClient;
 
 use websocket_client::{WebSocketHelpers, WebSocketReader, WebSocketWriter};
+use futures_lite::io::{BufReader, BufWriter};
 
 use crate::parsed_message::ParsedTradingViewMessage;
 use crate::utilities;
-use crate::futures_provider;
-use crate::futures_provider::io::{BufReader, BufWriter};
 use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::message_wrapper::TradingViewMessageWrapper;
@@ -68,7 +67,7 @@ impl TradingViewClient
         log::info!("response = {response:?}");
 
         // split
-        let (reader, writer) = futures_provider::io::split(stream);
+        let (reader, writer) = futures_lite::io::split(stream);
         let reader = BufReader::new(reader);
         let writer = BufWriter::new(writer);
 
@@ -88,7 +87,7 @@ impl TradingViewClient
 
         // Spawn the reader task
         let _reader_handle = std::thread::spawn(move || {
-            futures_provider::future::block_on(async {
+            futures_lite::future::block_on(async {
                 loop {
                     match tv_reader.read_message().await {
                         Ok(result) => {

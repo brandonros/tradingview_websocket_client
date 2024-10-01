@@ -1,7 +1,7 @@
 use websocket_client::WebSocketReader;
 use bytes::{Buf, BytesMut};
+use futures_lite::io::AsyncRead;
 
-use crate::futures_provider::io::AsyncRead;
 use crate::message_wrapper::TradingViewMessageWrapper;
 use crate::types::Result;
 

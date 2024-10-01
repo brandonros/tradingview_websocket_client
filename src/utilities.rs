@@ -3,13 +3,11 @@ use std::{sync::Arc, time::Duration};
 use async_io::Timer;
 use async_lock::RwLock;
 
-use crate::futures_provider;
-
 pub async fn run_with_timeout<F, T>(timeout: Duration, future: F) -> Option<T>
 where
-    F: futures_provider::future::Future<Output = T> + Unpin,
+    F: futures_lite::future::Future<Output = T> + Unpin,
 {
-    futures_provider::future::or(async { Some(future.await) }, async {
+    futures_lite::future::or(async { Some(future.await) }, async {
         Timer::after(timeout).await;
         None
     })

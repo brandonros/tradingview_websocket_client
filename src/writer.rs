@@ -1,7 +1,7 @@
 use websocket_client::WebSocketWriter;
+use futures_lite::io::AsyncWrite;
 
 use crate::message_wrapper::TradingViewMessageWrapper;
-use crate::futures_provider::io::AsyncWrite;
 use crate::types::Result;
 
 /// TradingViewWriter handles writing TradingView messages.
