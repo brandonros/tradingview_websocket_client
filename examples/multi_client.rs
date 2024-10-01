@@ -29,20 +29,23 @@ impl TradingViewMessageProcessor for TradingViewMessageProcessorImpl {
       },
       ParsedTradingViewMessage::QuoteSeriesData(quote_series_data_message) => {
         //log::info!("[{name}] quote_series_data_message = {quote_series_data_message:?}");
-        if let Some(last_price) = quote_series_data_message.update.lp {
-          log::info!("[{name}] last_price = {last_price}");
-        }
-        if let Some(volume) = quote_series_data_message.update.volume {
-          log::info!("[{name}] volume = {volume}");
-        }
+        let quote_session_id = quote_series_data_message.quote_session_id;
+        let quote_update = quote_series_data_message.quote_update;
+        log::info!("[{name}:{quote_session_id}] quote_update = {quote_update:?}");
       },
       ParsedTradingViewMessage::DataUpdate(data_update_message) => {
         //log::info!("[{name}] data_update_message = {data_update_message:?}");
+        let chart_session_id = data_update_message.chart_session_id;
+        let update_key = data_update_message.update_key;
         if let Some(series_updates) = data_update_message.series_updates {
-          log::info!("series_updates = {series_updates:?}");
+          for series_update in series_updates {
+            log::info!("[{name}:{chart_session_id}:{update_key}] series_update = {series_update:?}");
+          }
         }
         if let Some(study_updates) = data_update_message.study_updates {
-          log::info!("study_updates = {study_updates:?}");
+          for study_update in study_updates {
+            log::info!("[{name}:{chart_session_id}:{update_key}] study_update = {study_update:?}");
+          }
         }
       },
       ParsedTradingViewMessage::QuoteCompleted(quote_completed_message) => {
@@ -77,6 +80,9 @@ impl TradingViewMessageProcessor for TradingViewMessageProcessorImpl {
       },
       ParsedTradingViewMessage::ProtocolError(protocol_error_message) => {
         log::info!("[{name}] protocol_error_message = {protocol_error_message:?}");
+      },
+      ParsedTradingViewMessage::NotifyUser(notify_user_message) => {
+        log::info!("[{name}] notify_user_message = {notify_user_message:?}");
       },
     }
   }
@@ -171,10 +177,10 @@ fn main() {
     // build clients
     let configs = vec![
         TradingViewClientConfig {
-            name: "SPY5".to_string(),
+            name: "SPY5REG".to_string(),
             auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
-            quote_symbols: vec!["AMEX:SPY".to_string()],
+            quote_symbols: vec![r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"regular\",\"symbol\":\"AMEX:SPY\"}"#.to_string()],
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,
@@ -185,7 +191,7 @@ fn main() {
             name: "SPY5EXT".to_string(),
             auth_token: auth_token.clone(),
             chart_symbol: r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"AMEX:SPY\"}"#.to_string(),
-            quote_symbols: vec![],
+            quote_symbols: vec![r#"={\"adjustment\":\"splits\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"AMEX:SPY\"}"#.to_string()],
             indicators: vec![VWAP_MVWAP_EMA_CROSSOVER.to_string()],
             timeframe: "5".to_string(),
             range: 300,

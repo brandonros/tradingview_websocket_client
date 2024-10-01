@@ -69,7 +69,7 @@ pub struct QuoteSeriesDataUpdate {
 #[derive(Debug, Clone)]
 pub struct QuoteSeriesDataMessage {
     pub quote_session_id: String,
-    pub update: QuoteSeriesDataUpdate,
+    pub quote_update: QuoteSeriesDataUpdate,
 }
 
 #[derive(Debug, Clone)]
@@ -172,6 +172,11 @@ pub struct ProtocolErrorMessage {
 }
 
 #[derive(Debug, Clone)]
+pub struct NotifyUserMessage {
+
+}
+
+#[derive(Debug, Clone)]
 pub enum ParsedTradingViewMessage {
     ServerHello(ServerHelloMessage),
     Ping(usize),
@@ -188,6 +193,7 @@ pub enum ParsedTradingViewMessage {
     TickmarkUpdate(TickmarkUpdateMessage),
     CriticalError(CriticalErrorMessage),
     ProtocolError(ProtocolErrorMessage),
+    NotifyUser(NotifyUserMessage),
 }
 
 impl ParsedTradingViewMessage {
@@ -253,7 +259,7 @@ impl ParsedTradingViewMessage {
             };
             Ok(ParsedTradingViewMessage::QuoteSeriesData(QuoteSeriesDataMessage {
                 quote_session_id,
-                update: quote_series_data_update
+                quote_update: quote_series_data_update
             }))
         } else if message_type == "du" {
             //log::info!("du = {parsed_message:?}");
@@ -463,6 +469,11 @@ impl ParsedTradingViewMessage {
         } else if message_type == "protcol_error" {
             log::info!("protcol_error = {parsed_message:?}");
             Ok(ParsedTradingViewMessage::ProtocolError(ProtocolErrorMessage {
+                
+            }))
+        } else if message_type == "notify_user" {
+            log::info!("notify_user = {parsed_message:?}");
+            Ok(ParsedTradingViewMessage::NotifyUser(NotifyUserMessage {
                 
             }))
         } else {

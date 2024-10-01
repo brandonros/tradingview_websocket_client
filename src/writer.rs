@@ -25,7 +25,6 @@ where
     pub async fn write_message(&mut self, message: &str) -> Result<()> {
         let tv_message = TradingViewMessageWrapper::serialize(message);
         log::debug!("write_message: tv_message = {tv_message}");
-        // TODO: write_frame -> write_message
         self.ws_writer.write_text_message(&tv_message).await
     }
 
@@ -93,6 +92,13 @@ where
             .write_message(&message)
             .await
     }
+
+    pub async fn request_more_data(&mut self, chart_session_id: &str, series_id: &str, amount: usize) -> Result<()> {
+        let message = format!(r#"{{"m":"request_more_data","p":["{chart_session_id}","{series_id}",{amount}]}}"#);
+        self
+            .write_message(&message)
+            .await
+    }       
 
     pub async fn quote_fast_symbols(&mut self, quote_session_id: &str, symbol: &str) -> Result<()> {
         let message = format!(r#"{{"m":"quote_fast_symbols","p":["{quote_session_id}","{symbol}"]}}"#);

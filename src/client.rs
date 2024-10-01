@@ -194,8 +194,6 @@ impl TradingViewClient
             index += 1;
         }
 
-        // TODO: request more tickmarks from symbol?
-
         // optionally create study session
         if self.indicators.len() > 0 {
             let study_session_id = "st1";
@@ -237,6 +235,15 @@ impl TradingViewClient
                 log::info!("study_completed_message = {study_completed_message:?}");
             }
         }
+
+        // request more data from series?
+        /*for _ in 0..20 {
+            tv_writer.request_more_data(chart_session_id1, series_id, 1000).await.expect("failed to request more data");
+
+            // TODO: wait for individual sries_loading / study_loading / study_completed messages
+
+            async_io::Timer::after(Duration::from_millis(1000)).await;
+        }*/
 
         // read all messages
         loop {
