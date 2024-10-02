@@ -14,6 +14,7 @@ use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::message_wrapper::TradingViewMessageWrapper;
 use crate::message_processor::TradingViewMessageProcessor;
+use crate::types::Result;
 
 pub struct TradingViewClient
 {
@@ -42,9 +43,9 @@ impl TradingViewClient
         }
     }
 
-    pub async fn run(&self) {
+    pub async fn run(&self) -> Result<()> {
         // Build the URI for the request
-        let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse().expect("Failed to parse URI");
+        let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse()?;
 
         // Build the GET request
         let request = Request::builder()
@@ -58,12 +59,11 @@ impl TradingViewClient
             .header("Upgrade", "websocket")      
             .header("Sec-WebSocket-Version", "13")                        
             .header("Sec-WebSocket-Key", WebSocketHelpers::generate_sec_websocket_key())    
-            .body(())
-            .expect("Failed to build request");
+            .body(())?;
 
         // Get the response
-        let mut stream = HttpClient::connect(&request).await.expect("connect failed");
-        let response = HttpClient::send::<(), String>(&mut stream, &request).await.expect("request failed");
+        let mut stream = HttpClient::connect(&request).await?;
+        let response = HttpClient::send::<(), String>(&mut stream, &request).await?;
         log::info!("response = {response:?}");
 
         // split
@@ -115,21 +115,21 @@ impl TradingViewClient
         log::info!("server_hello_message = {server_hello_message:?}");
 
         // set auth token
-        tv_writer.set_auth_token(&self.auth_token).await.expect("failed to set auth token");
+        tv_writer.set_auth_token(&self.auth_token).await?;
         
         // set locale
-        tv_writer.set_locale("en", "US").await.expect("failed to set locale");
+        tv_writer.set_locale("en", "US").await?;
 
         // create chart session
         let chart_session_id1 = "cs_000000000001";
-        tv_writer.chart_create_session(chart_session_id1).await.expect("failed to create chart session");
+        tv_writer.chart_create_session(chart_session_id1).await?;
 
         // quote_create_session
         // quote_add_symbols symbol with session in it
 
         // resolve symbol
         let symbol_id = "sds_sym_1";
-        tv_writer.resolve_symbol(chart_session_id1, symbol_id, &self.chart_symbol).await.expect("failed to add symbol to resolve symbol");
+        tv_writer.resolve_symbol(chart_session_id1, symbol_id, &self.chart_symbol).await?;
 
         // wait for symbol resolved message
         let symbol_resolved_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("symbol_resolved"))))
@@ -140,10 +140,10 @@ impl TradingViewClient
 
         // add symbol to chart session as series
         let series_id = "sds_1";
-        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await.expect("failed to create series");
+        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await?;
 
         // switch chart timezone
-        tv_writer.switch_timezone(chart_session_id1, "exchange").await.expect("failed to switch chart timezone");
+        tv_writer.switch_timezone(chart_session_id1, "exchange").await?;
 
         // wait for series loading message
         let series_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_loading"))))
@@ -171,16 +171,16 @@ impl TradingViewClient
         for quote_symbol in &self.quote_symbols {
             // create quote session
             let quote_session_id = format!("qs_{index:012}");
-            tv_writer.quote_create_session(&quote_session_id).await.expect("failed to create quote session");
+            tv_writer.quote_create_session(&quote_session_id).await?;
 
             // set quote session fields
-            tv_writer.quote_set_fields(&quote_session_id).await.expect("failed to set quote fields");
+            tv_writer.quote_set_fields(&quote_session_id).await?;
 
             // add symbol to quote session
-            tv_writer.quote_add_symbols(&quote_session_id, &quote_symbol).await.expect("failed to add symbol to quote session");
+            tv_writer.quote_add_symbols(&quote_session_id, &quote_symbol).await?;
 
             // turn on quote fast symbols for quote session
-            tv_writer.quote_fast_symbols(&quote_session_id, &quote_symbol).await.expect("failed to turn on quote fast symbols");
+            tv_writer.quote_fast_symbols(&quote_session_id, &quote_symbol).await?;
 
             // wait for quote completed message
             let quote_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("quote_completed"))))
@@ -196,7 +196,7 @@ impl TradingViewClient
         // optionally create study session
         if self.indicators.len() > 0 {
             let study_session_id = "st1";
-            tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await.expect("failed to create study session");
+            tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await?;
 
             // wait for study loading message
             let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
@@ -216,7 +216,7 @@ impl TradingViewClient
             for indciator in &self.indicators {
                 let study_value = indciator;
                 let study_id = format!("st{index}");
-                tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await.expect("failed to add to study session");
+                tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await?;
                 index += 1;
 
                 // wait for study loading message
@@ -237,7 +237,7 @@ impl TradingViewClient
 
         // request more data from series?
         /*for _ in 0..20 {
-            tv_writer.request_more_data(chart_session_id1, series_id, 1000).await.expect("failed to request more data");
+            tv_writer.request_more_data(chart_session_id1, series_id, 1000).await?;
 
             // TODO: wait for individual sries_loading / study_loading / study_completed messages
 
@@ -249,11 +249,11 @@ impl TradingViewClient
             let result = utilities::wait_for_message(buffer_arc.clone(), |_| true).await;
             match result {
                 Some(message) => {
-                    let parsed_message = ParsedTradingViewMessage::from_string(&message.payload).expect("failed to parse message");
+                    let parsed_message = ParsedTradingViewMessage::from_string(&message.payload)?;
                     match &parsed_message {
                         ParsedTradingViewMessage::Ping(nonce) => {
                             log::info!("ping nonce = {nonce}");
-                            tv_writer.pong(*nonce).await.expect("failed to pong");
+                            tv_writer.pong(*nonce).await?;
                         },
                         _ => {
                             // send to message processor
@@ -266,4 +266,3 @@ impl TradingViewClient
         }
     }
 }
-

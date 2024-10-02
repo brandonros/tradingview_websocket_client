@@ -77,8 +77,7 @@ impl TradingViewMessageProcessor for TradingViewMessageProcessorImpl {
   }
 }
 
-pub struct TradingViewClientConfig
-{
+pub struct TradingViewClientConfig {
     name: String,
     auth_token: String,
     chart_symbol: String,
@@ -194,7 +193,10 @@ fn main() {
         handles.push(std::thread::spawn(move || {
             futures_lite::future::block_on(async {
                 let client = config.to_client();
-                client.run().await
+                match client.run().await {
+                    Ok(()) => (),
+                    Err(err) => panic!("{err}"),
+                }
             })
         }));
     }
