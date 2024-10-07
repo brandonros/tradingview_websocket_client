@@ -10,36 +10,20 @@ use futures_lite::io::{BufReader, BufWriter};
 
 use crate::parsed_message::ParsedTradingViewMessage;
 use crate::utilities;
+use crate::client_config::TradingViewClientConfig;
 use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::message_wrapper::TradingViewMessageWrapper;
-use crate::message_processor::TradingViewMessageProcessor;
 use crate::types::Result;
 
-pub struct TradingViewClient
-{
-    name: String,
-    auth_token: String,
-    chart_symbol: String,
-    quote_symbols: Vec<String>,
-    indicators: Vec<String>,
-    timeframe: String,
-    range: usize,
-    message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>
+pub struct TradingViewClient {
+    config: TradingViewClientConfig
 }
 
-impl TradingViewClient
-{
-    pub fn new(name: String, auth_token: String, chart_symbol: String, quote_symbols: Vec<String>, indicators: Vec<String>, timeframe: String, range: usize, message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>) -> Self {
+impl TradingViewClient {
+    pub fn new(config: TradingViewClientConfig) -> Self {
         Self {
-            name,
-            auth_token,
-            chart_symbol,
-            quote_symbols,
-            indicators,
-            timeframe,
-            range,
-            message_processor
+            config
         }
     }
 
@@ -115,60 +99,108 @@ impl TradingViewClient
         log::info!("server_hello_message = {server_hello_message:?}");
 
         // set auth token
-        tv_writer.set_auth_token(&self.auth_token).await?;
+        tv_writer.set_auth_token(&self.config.auth_token).await?;
         
         // set locale
         tv_writer.set_locale("en", "US").await?;
 
-        // create chart session
-        let chart_session_id1 = "cs_000000000001";
-        tv_writer.chart_create_session(chart_session_id1).await?;
+        // handle chart sessions
+        let mut index = 1;
+        for chart_symbol in &self.config.chart_symbols {
+            // create chart session
+            let chart_session_id = format!("cs_{index:012}");
 
-        // quote_create_session
-        // quote_add_symbols symbol with session in it
+            // create chart session
+            tv_writer.chart_create_session(&chart_session_id).await?;
 
-        // resolve symbol
-        let symbol_id = "sds_sym_1";
-        tv_writer.resolve_symbol(chart_session_id1, symbol_id, &self.chart_symbol).await?;
+            // resolve symbol
+            let symbol_id = "sds_sym_1";
+            tv_writer.resolve_symbol(&chart_session_id, symbol_id, &chart_symbol).await?;
 
-        // wait for symbol resolved message
-        let symbol_resolved_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("symbol_resolved"))))
-            .await
-            .expect("timed out")
-            .expect("failed to get symbol resolved message");
-        log::info!("symbol_resolved_message = {symbol_resolved_message:?}");
+            // wait for symbol resolved message
+            let symbol_resolved_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("symbol_resolved"))))
+                .await
+                .expect("timed out")
+                .expect("failed to get symbol resolved message");
+            log::info!("symbol_resolved_message = {symbol_resolved_message:?}");
 
-        // add symbol to chart session as series
-        let series_id = "sds_1";
-        tv_writer.create_series(chart_session_id1, series_id, "s1",  symbol_id, &self.timeframe, self.range).await?;
+            // add symbol to chart session as series
+            let series_id = "sds_1";
+            tv_writer.create_series(&chart_session_id, series_id, "s1",  symbol_id, &self.config.timeframe, self.config.range).await?;
 
-        // switch chart timezone
-        tv_writer.switch_timezone(chart_session_id1, "exchange").await?;
+            // switch chart timezone
+            tv_writer.switch_timezone(&chart_session_id, "exchange").await?;
 
-        // wait for series loading message
-        let series_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_loading"))))
-            .await
-            .expect("timed out")
-            .expect("failed to get series loading message");
-        log::info!("series_loading_message = {series_loading_message:?}");
+            // wait for series loading message
+            let series_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_loading"))))
+                .await
+                .expect("timed out")
+                .expect("failed to get series loading message");
+            log::info!("series_loading_message = {series_loading_message:?}");
 
-        // wait for timescale update message
-        let timescale_update_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("timescale_update"))))
-            .await
-            .expect("timed out")
-            .expect("failed to get timesale update message");
-        log::info!("timescale_update_message = {timescale_update_message:?}");
+            // wait for timescale update message
+            let timescale_update_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("timescale_update"))))
+                .await
+                .expect("timed out")
+                .expect("failed to get timesale update message");
+            log::info!("timescale_update_message = {timescale_update_message:?}");
 
-        // wait for series completed message
-        let series_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_completed"))))
-            .await
-            .expect("timed out")
-            .expect("failed to get series completed message");
-        log::info!("series_completed_message = {series_completed_message:?}");
+            // wait for series completed message
+            let series_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_completed"))))
+                .await
+                .expect("timed out")
+                .expect("failed to get series completed message");
+            log::info!("series_completed_message = {series_completed_message:?}");
+
+            // optionally create study session
+            if self.config.indicators.len() > 0 {
+                let study_session_id = "st1";
+                tv_writer.create_study(&chart_session_id, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await?;
+
+                // wait for study loading message
+                let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
+                    .await
+                    .expect("timed out")
+                    .expect("failed to get study loading message");
+                log::info!("study_loading_message = {study_loading_message:?}");
+
+                // wait for study completed message
+                let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
+                    .await
+                    .expect("timed out")
+                    .expect("failed to get study completed message");
+                log::info!("study_completed_message = {study_completed_message:?}");
+
+                let mut index = 2;
+                for indciator in &self.config.indicators {
+                    let study_value = indciator;
+                    let study_id = format!("st{index}");
+                    tv_writer.create_study(&chart_session_id, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await?;
+                    index += 1;
+
+                    // wait for study loading message
+                    let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
+                        .await
+                        .expect("timed out")
+                        .expect("failed to get study loading message");
+                    log::info!("study_loading_message = {study_loading_message:?}");
+
+                    // wait for study completed message
+                    let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
+                        .await
+                        .expect("timed out")
+                        .expect("failed to get study completed message");
+                    log::info!("study_completed_message = {study_completed_message:?}");
+                }
+            }
+
+            // increment index
+            index += 1;
+        }
 
         // quote_symbol quote session
         let mut index = 1;
-        for quote_symbol in &self.quote_symbols {
+        for quote_symbol in &self.config.quote_symbols {
             // create quote session
             let quote_session_id = format!("qs_{index:012}");
             tv_writer.quote_create_session(&quote_session_id).await?;
@@ -193,48 +225,6 @@ impl TradingViewClient
             index += 1;
         }
 
-        // optionally create study session
-        if self.indicators.len() > 0 {
-            let study_session_id = "st1";
-            tv_writer.create_study(chart_session_id1, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await?;
-
-            // wait for study loading message
-            let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
-                .await
-                .expect("timed out")
-                .expect("failed to get study loading message");
-            log::info!("study_loading_message = {study_loading_message:?}");
-
-            // wait for study completed message
-            let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
-                .await
-                .expect("timed out")
-                .expect("failed to get study completed message");
-            log::info!("study_completed_message = {study_completed_message:?}");
-
-            let mut index = 2;
-            for indciator in &self.indicators {
-                let study_value = indciator;
-                let study_id = format!("st{index}");
-                tv_writer.create_study(chart_session_id1, &study_id, study_session_id, series_id, "Script@tv-scripting-101!", study_value).await?;
-                index += 1;
-
-                // wait for study loading message
-                let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
-                    .await
-                    .expect("timed out")
-                    .expect("failed to get study loading message");
-                log::info!("study_loading_message = {study_loading_message:?}");
-
-                // wait for study completed message
-                let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
-                    .await
-                    .expect("timed out")
-                    .expect("failed to get study completed message");
-                log::info!("study_completed_message = {study_completed_message:?}");
-            }
-        }
-
         // request more data from series?
         /*for _ in 0..20 {
             tv_writer.request_more_data(chart_session_id1, series_id, 1000).await?;
@@ -257,7 +247,7 @@ impl TradingViewClient
                         },
                         _ => {
                             // send to message processor
-                            self.message_processor.process_message(self.name.clone(), parsed_message).await;
+                            self.config.message_processor.process_message(self.config.name.clone(), parsed_message).await;
                         }
                     }
                 },

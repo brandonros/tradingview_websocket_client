@@ -198,6 +198,8 @@ pub enum ParsedTradingViewMessage {
 
 impl ParsedTradingViewMessage {
     pub fn from_string(value: &str) -> Result<Self> {
+        log::trace!("value = {value}");
+
         // ping messages are not json
         if value.starts_with("~h~") {
             let nonce_str = &value[3..];
