@@ -27,7 +27,7 @@ impl TradingViewClient {
         }
     }
 
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run(&self, simple: bool) -> Result<()> {
         // Build the URI for the request
         let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse()?;
 
@@ -221,6 +221,20 @@ impl TradingViewClient {
                 .expect("failed to get quote completed message");
             log::info!("quote_completed_message = {quote_completed_message:?}");
 
+            // wait for quote last price
+            let quote_last_price_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| {
+                    match &message.parsed_message {
+                        ParsedTradingViewMessage::QuoteSeriesData(quote_series_data_message) => {
+                            quote_series_data_message.quote_update.rtc.is_some() || quote_series_data_message.quote_update.lp.is_some()
+                        },
+                        _ => false
+                    }
+                })))
+                .await
+                .expect("timed out")
+                .expect("failed to get quote last price message");
+            log::info!("quote_last_price_message = {quote_last_price_message:?}");
+
             // increment index
             index += 1;
         }
@@ -233,6 +247,11 @@ impl TradingViewClient {
 
             async_io::Timer::after(Duration::from_millis(1000)).await;
         }*/
+
+        // exit if simple
+        if simple {
+            return Ok(());
+        }
 
         // read all messages
         loop {

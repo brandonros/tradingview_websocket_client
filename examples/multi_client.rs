@@ -60,7 +60,7 @@ fn main() {
         handles.push(std::thread::spawn(move || {
             futures_lite::future::block_on(async {
                 let client: TradingViewClient = config.to_client();
-                match client.run().await {
+                match client.run(false).await {
                     Ok(()) => (),
                     Err(err) => panic!("{err}"),
                 }
