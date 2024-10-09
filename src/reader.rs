@@ -39,6 +39,10 @@ where
                     match ws_message.opcode {
                         Some(opcode) => {
                             match opcode {
+                                websocket_client::WebSocketOpcode::Close => {
+                                    log::warn!("websocket closed");
+                                    return Ok(None);
+                                },
                                 websocket_client::WebSocketOpcode::Text => {
                                     self.buffer.extend_from_slice(&ws_message.payload_buffer);
                                 },
