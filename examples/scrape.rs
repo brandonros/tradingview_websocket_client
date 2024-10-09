@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewMessageProcessor};
+use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewClientMode, TradingViewMessageProcessor};
 
 fn main() {
     // init logging
@@ -24,15 +24,18 @@ fn main() {
         indicators: vec![],
         timeframe: "5".to_string(),
         range: 300,
-        message_processor: message_processor1.clone()
+        message_processor: message_processor1.clone(),
+        mode: TradingViewClientMode::Standard
     };
+    let client: TradingViewClient = config.to_client();
 
     // spawn client
-    futures_lite::future::block_on(async {
-        let client: TradingViewClient = config.to_client();
-        match client.run(true).await {
-            Ok(()) => (),
+    let scrape_result = futures_lite::future::block_on(async {
+        match client.run().await {
+            Ok(scrape_result) => scrape_result,
             Err(err) => panic!("{err}"),
         }     
-    })
+    });
+
+    log::info!("scrape_result = {scrape_result:?}");
 }

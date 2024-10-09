@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewIndicators, TradingViewMessageProcessor, SPY5_EXT_SYMBOL, SPY5_REG_SYMBOL};
+use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewClientMode, TradingViewIndicators, TradingViewMessageProcessor, SPY5_EXT_SYMBOL, SPY5_REG_SYMBOL};
 
 fn main() {
     // init logging
@@ -37,7 +37,8 @@ fn main() {
             ],
             timeframe: "5".to_string(),
             range: 300,
-            message_processor: message_processor1.clone()
+            message_processor: message_processor1.clone(),
+            mode: TradingViewClientMode::Streaming
         },
 
         TradingViewClientConfig {
@@ -50,7 +51,8 @@ fn main() {
             ],
             timeframe: "5".to_string(),
             range: 300,
-            message_processor: message_processor2.clone()
+            message_processor: message_processor2.clone(),
+            mode: TradingViewClientMode::Streaming
         },
     ];
 
@@ -60,8 +62,8 @@ fn main() {
         handles.push(std::thread::spawn(move || {
             futures_lite::future::block_on(async {
                 let client: TradingViewClient = config.to_client();
-                match client.run(false).await {
-                    Ok(()) => (),
+                match client.run().await {
+                    Ok(_) => (),
                     Err(err) => panic!("{err}"),
                 }
             })

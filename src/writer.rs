@@ -28,6 +28,10 @@ where
         self.ws_writer.write_text_message(&tv_message).await
     }
 
+    pub async fn close(&mut self) -> Result<()> {
+        self.ws_writer.write_close_message().await
+    }
+
     pub async fn set_auth_token(&mut self, auth_token: &str) -> Result<()> {
         let message = format!(r#"{{"m":"set_auth_token","p":["{auth_token}"]}}"#);
         self

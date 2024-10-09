@@ -15,12 +15,14 @@ log = "0.4.20"
 bytes = "1.7.2"
 nom = "7.1.3"
 # websocket
-websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "c66360be416cecf26b1ff2579e65e99d8131f3a6" }
+websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "543ea14b77e586203c2c6216bdc3c9d8f4b289a0" }
 # http
 http = "1.0.0"
 http_client = { git = "https://github.com/brandonros/http_client.git", rev = "52cf9005c87ff069a098af9365dcd7a60e276792" }
 # json
 miniserde = "0.1.40"
+# enum
+enum-as-inner = "0.6.1"
 
 [dev-dependencies]
 # logging
