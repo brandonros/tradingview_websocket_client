@@ -24,5 +24,6 @@ pub struct TradingViewScrapeResult {
     pub study_completed_messages: Vec<StudyCompletedMessage>,
     pub quote_completed_messages: Vec<QuoteCompletedMessage>,
     pub quote_last_price_messages: Vec<QuoteSeriesDataMessage>,
-    pub data_update_messages: Vec<DataUpdateMessage>, // TODO: split series and study?
+    pub series_data_update_messages: Vec<DataUpdateMessage>, // TODO: split series and study?    
+    pub study_data_update_messages: Vec<DataUpdateMessage>, // TODO: split series and study?
 }

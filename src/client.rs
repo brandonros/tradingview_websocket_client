@@ -81,7 +81,8 @@ impl TradingViewClient {
             study_completed_messages: vec![],
             quote_completed_messages: vec![],
             quote_last_price_messages: vec![],
-            data_update_messages: vec![],
+            study_data_update_messages: vec![],
+            series_data_update_messages: vec![],
         };
 
         // Spawn the reader task
@@ -224,6 +225,22 @@ impl TradingViewClient {
                     let study_completed_message = study_completed_message.parsed_message.as_study_completed().ok_or("failed to cast")?;
                     log::info!("study_completed_message = {study_completed_message:?}");
                     scrape_result.study_completed_messages.push(study_completed_message.clone());
+
+                    // wait for study data update
+                    let study_data_update_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| {
+                        match &message.parsed_message {
+                            ParsedTradingViewMessage::DataUpdate(data_update_message) => {
+                                data_update_message.study_updates.is_some()
+                            },
+                            _ => false
+                        }
+                    })))
+                    .await
+                    .expect("timed out")
+                    .expect("failed to get series data update");
+                    let study_data_update_message = study_data_update_message.parsed_message.as_data_update().ok_or("failed to cast")?;
+                    log::info!("study_data_update_message = {study_data_update_message:?}");
+                    scrape_result.study_data_update_messages.push(study_data_update_message.clone());
                 }
             }
 
