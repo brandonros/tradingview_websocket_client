@@ -1,11 +1,11 @@
-#![allow(dead_code)]
-
 use enum_as_inner::EnumAsInner;
+use miniserde::Serialize;
 use miniserde::json::{Number, Object};
 
-use crate::{json_utilities, types::Result};
+use crate::json_utilities;
+use crate::types::Result;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct QuoteSeriesDataUpdate {
     pub symbol: String,
     pub volume: Option<Number>,
@@ -24,13 +24,13 @@ pub struct QuoteSeriesDataUpdate {
     pub trade_loaded: Option<bool>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct QuoteSeriesDataMessage {
     pub quote_session_id: String,
     pub quote_update: QuoteSeriesDataUpdate,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DataUpdateMessage {
     pub chart_session_id: String,
     pub update_key: String,
@@ -38,13 +38,13 @@ pub struct DataUpdateMessage {
     pub study_updates: Option<Vec<StudyUpdate>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct QuoteCompletedMessage {
     pub quote_session_id: String,
     pub symbol: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TimescaleUpdate {
     pub index: Number,
     pub timestamp: Number,
@@ -55,7 +55,7 @@ pub struct TimescaleUpdate {
     pub volume: Number,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SeriesUpdate {
     pub index: Number,
     pub timestamp: Number,
@@ -66,70 +66,70 @@ pub struct SeriesUpdate {
     pub volume: Number,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StudyUpdate {
     pub index: Number,
     pub values: Vec<Number>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TimescaleUpdatedMessage {
     pub chart_session_id: String,
     pub update_key: Option<String>,
     pub updates: Option<Vec<TimescaleUpdate>>
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ServerHelloMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SeriesLoadingMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SymbolResolvedMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SeriesCompletedMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StudyLoadingMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StudyErrorMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StudyCompletedMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TickmarkUpdateMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CriticalErrorMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ProtocolErrorMessage {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NotifyUserMessage {
 
 }

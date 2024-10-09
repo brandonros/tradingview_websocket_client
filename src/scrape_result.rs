@@ -1,3 +1,5 @@
+use miniserde::Serialize;
+
 use crate::parsed_message::{
     ServerHelloMessage,
     QuoteSeriesDataMessage,
@@ -11,7 +13,7 @@ use crate::parsed_message::{
     StudyCompletedMessage,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct TradingViewScrapeResult {
     pub server_hello_messages: Vec<ServerHelloMessage>,
     pub symbol_resolved_messages: Vec<SymbolResolvedMessage>,
