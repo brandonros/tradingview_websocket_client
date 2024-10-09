@@ -230,7 +230,12 @@ impl TradingViewClient {
                     let study_data_update_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| {
                         match &message.parsed_message {
                             ParsedTradingViewMessage::DataUpdate(data_update_message) => {
-                                data_update_message.study_updates.is_some()
+                                match &data_update_message.study_updates {
+                                    Some(study_updates) => {
+                                        return study_updates.len() > 0
+                                    },
+                                    None => return false
+                                }
                             },
                             _ => false
                         }
