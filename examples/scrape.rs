@@ -11,7 +11,7 @@ fn main() {
     let auth_token = std::env::var("AUTH_TOKEN").expect("failed to get AUTH_TOKEN");
 
     // build message processor
-    let message_processor1: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>> = Arc::new(Box::new(DefaultTradingViewMessageProcessor {}));
+    let message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>> = Arc::new(Box::new(DefaultTradingViewMessageProcessor {}));
 
     // get symbol
     let args = std::env::args().collect::<Vec<_>>();
@@ -24,10 +24,9 @@ fn main() {
         indicators: vec![],
         timeframe: "5".to_string(),
         range: 300,
-        message_processor: message_processor1.clone(),
         mode: TradingViewClientMode::Standard
     };
-    let client: TradingViewClient = config.to_client();
+    let client: TradingViewClient = config.to_client(message_processor);
 
     // spawn client
     let scrape_result = futures_lite::future::block_on(async {

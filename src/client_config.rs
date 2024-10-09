@@ -1,15 +1,17 @@
 use std::sync::Arc;
 
+use miniserde::Deserialize;
+
 use crate::message_processor::TradingViewMessageProcessor;
 use crate::client::TradingViewClient;
 
-#[derive(Clone)]
+#[derive(Deserialize, Clone)]
 pub enum TradingViewClientMode {
     Standard,
     Streaming
 }
 
-#[derive(Clone)]
+#[derive(Deserialize, Clone)]
 pub struct TradingViewClientConfig {
     pub name: String,
     pub auth_token: String,
@@ -18,12 +20,11 @@ pub struct TradingViewClientConfig {
     pub indicators: Vec<String>,
     pub timeframe: String,
     pub range: usize,
-    pub message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>,
     pub mode: TradingViewClientMode
 }
 
 impl TradingViewClientConfig {
-    pub fn to_client(&self) -> TradingViewClient {
-        TradingViewClient::new(self.clone())
+    pub fn to_client(&self, message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>) -> TradingViewClient {
+        TradingViewClient::new(self.clone(), message_processor)
     }
 }

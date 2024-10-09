@@ -15,16 +15,19 @@ use crate::reader::TradingViewReader;
 use crate::writer::TradingViewWriter;
 use crate::message_wrapper::TradingViewMessageWrapper;
 use crate::scrape_result::TradingViewScrapeResult;
+use crate::message_processor::TradingViewMessageProcessor;
 use crate::types::Result;
 
 pub struct TradingViewClient {
-    config: TradingViewClientConfig
+    config: TradingViewClientConfig,
+    message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>
 }
 
 impl TradingViewClient {
-    pub fn new(config: TradingViewClientConfig) -> Self {
+    pub fn new(config: TradingViewClientConfig, message_processor: Arc<Box<dyn TradingViewMessageProcessor + Send + Sync>>) -> Self {
         Self {
-            config
+            config,
+            message_processor
         }
     }
 
@@ -334,7 +337,7 @@ impl TradingViewClient {
                         },
                         _ => {
                             // send to message processor
-                            self.config.message_processor.process_message(self.config.name.clone(), parsed_message).await;
+                            self.message_processor.process_message(self.config.name.clone(), parsed_message).await;
                         }
                     }
                 },
