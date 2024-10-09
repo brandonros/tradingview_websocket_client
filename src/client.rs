@@ -101,7 +101,10 @@ impl TradingViewClient {
                                     write_lock.push(message);
                                     drop(write_lock);
                                 },
-                                None => panic!("received none"),
+                                None => {
+                                    log::warn!("received none");
+                                    break;
+                                }
                             }
                         },
                         Err(err) => panic!("{err:?}"),
