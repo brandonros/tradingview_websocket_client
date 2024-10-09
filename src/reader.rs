@@ -36,7 +36,17 @@ where
             // Need more data; read the next WebSocket message
             match self.ws_reader.read_message().await? {
                 Some(ws_message) => {
-                    self.buffer.extend_from_slice(&ws_message.payload_buffer);
+                    match ws_message.opcode {
+                        Some(opcode) => {
+                            match opcode {
+                                websocket_client::WebSocketOpcode::Text => {
+                                    self.buffer.extend_from_slice(&ws_message.payload_buffer);
+                                },
+                                _ => todo!()
+                            }
+                        },
+                        None => todo!(),
+                    }
                 }
                 None => {
                     // No more WebSocket messages
