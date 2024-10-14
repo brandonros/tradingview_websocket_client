@@ -31,7 +31,7 @@ impl TradingViewClient {
         }
     }
 
-    pub async fn run(&self, executor: &Arc<Executor<'static>>) -> anyhow::Result<TradingViewScrapeResult> {
+    pub async fn run(&self, executor: Arc<Executor<'static>>) -> anyhow::Result<TradingViewScrapeResult> {
         // Build the URI for the request
         let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse()?;
 
