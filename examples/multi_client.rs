@@ -1,9 +1,11 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use smol_macros::Executor;
 use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClientConfig, TradingViewClientMode, TradingViewIndicators, TradingViewMessageProcessor, SPY5_EXT_SYMBOL, SPY5_REG_SYMBOL};
 
-fn main() {
+#[macro_rules_attribute::apply(smol_macros::main!)]
+async fn main(executor: &Arc<Executor<'static>>) -> anyhow::Result<()> {
     // init logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug,websocket_client=info,rustls=info,http_client=info")).init();
 
@@ -57,14 +59,14 @@ fn main() {
     // spawn clients on threads
     let mut handles = vec![];
     for client in clients {
-        handles.push(std::thread::spawn(move || {
-            futures_lite::future::block_on(async {
-                match client.run().await {
-                    Ok(_) => (),
-                    Err(err) => panic!("{err}"),
-                }
-            })
-        }));
+        let executor_clone = executor.clone();
+        let handle = executor.spawn(async move {
+            match client.run(&executor_clone).await {
+                Ok(_) => (),
+                Err(err) => panic!("{err}"),
+            }
+        });
+        handles.push(handle);
     }
 
     // watch handles

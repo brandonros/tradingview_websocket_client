@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use smol_macros::Executor;
 use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewClientMode, TradingViewMessageProcessor};
 
-fn main() {
+#[macro_rules_attribute::apply(smol_macros::main!)]
+async fn main(executor: &Arc<Executor<'static>>) -> anyhow::Result<()> {
     // init logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug,websocket_client=info,rustls=info,http_client=info")).init();
 
@@ -29,12 +31,12 @@ fn main() {
     let client: TradingViewClient = config.to_client(message_processor);
 
     // spawn client
-    let scrape_result = futures_lite::future::block_on(async {
-        match client.run().await {
-            Ok(scrape_result) => scrape_result,
-            Err(err) => panic!("{err}"),
-        }     
-    });
+    let scrape_result = match client.run(&executor).await {
+        Ok(scrape_result) => scrape_result,
+        Err(err) => panic!("{err}"),
+    };
 
     log::info!("scrape_result = {scrape_result:?}");
+
+    Ok(())
 }

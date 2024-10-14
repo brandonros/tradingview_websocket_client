@@ -3,7 +3,6 @@ use miniserde::Serialize;
 use miniserde::json::{Number, Object};
 
 use crate::json_utilities;
-use crate::types::Result;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct QuoteSeriesDataUpdate {
@@ -155,13 +154,13 @@ pub enum ParsedTradingViewMessage {
 }
 
 impl ParsedTradingViewMessage {
-    pub fn from_string(value: &str) -> Result<Self> {
+    pub fn from_string(value: &str) -> anyhow::Result<Self> {
         log::trace!("value = {value}");
 
         // ping messages are not json
         if value.starts_with("~h~") {
             let nonce_str = &value[3..];
-            let nonce = nonce_str.parse::<usize>().map_err(|_| "failed to parse nonce")?;
+            let nonce = nonce_str.parse::<usize>().map_err(|_| anyhow::anyhow!("failed to parse nonce"))?;
             return Ok(ParsedTradingViewMessage::Ping(nonce));
         }
 
@@ -176,44 +175,44 @@ impl ParsedTradingViewMessage {
         }
         
         // all other messages have m property
-        let message_type = parsed_message.get("m").ok_or("failed to get message_type")?;
+        let message_type = parsed_message.get("m").ok_or(anyhow::anyhow!("failed to get message_type"))?;
         let message_type = json_utilities::value_to_string(message_type)?;
         if message_type == "qsd" {
             //log::info!("qsd = {parsed_message:?}");
-            let p = parsed_message.get("p").ok_or("failed to get p")?;
+            let p = parsed_message.get("p").ok_or(anyhow::anyhow!("failed to get p"))?;
             let p = json_utilities::value_to_array(p)?;
             let quote_session_id = &p[0];
             let quote_session_id = json_utilities::value_to_string(&quote_session_id)?;
             let update = &p[1];
             let update = json_utilities::value_to_object(&update)?;
-            let symbol = json_utilities::value_to_string(update.get("n").ok_or("failed to get n")?)?;
-            let v = json_utilities::value_to_object(update.get("v").ok_or("failed to get v")?)?;
+            let symbol = json_utilities::value_to_string(update.get("n").ok_or(anyhow::anyhow!("failed to get n"))?)?;
+            let v = json_utilities::value_to_object(update.get("v").ok_or(anyhow::anyhow!("failed to get v"))?)?;
             //let v_keys = v.keys().collect::<Vec<&String>>();
             // TODO: check more combinations
             let quote_series_data_update = QuoteSeriesDataUpdate {
                 symbol,
 
-                volume: if v.contains_key("volume") { Some(json_utilities::value_to_number(v.get("volume").ok_or("failed to get v")?)?) } else { None },
+                volume: if v.contains_key("volume") { Some(json_utilities::value_to_number(v.get("volume").ok_or(anyhow::anyhow!("failed to get v"))?)?) } else { None },
 
-                ch: if v.contains_key("ch") { Some(json_utilities::value_to_number(v.get("ch").ok_or("failed to get ch")?)?) } else { None },
-                chp: if v.contains_key("chp") { Some(json_utilities::value_to_number(v.get("chp").ok_or("failed to get chp")?)?) } else { None },
+                ch: if v.contains_key("ch") { Some(json_utilities::value_to_number(v.get("ch").ok_or(anyhow::anyhow!("failed to get ch"))?)?) } else { None },
+                chp: if v.contains_key("chp") { Some(json_utilities::value_to_number(v.get("chp").ok_or(anyhow::anyhow!("failed to get chp"))?)?) } else { None },
 
-                rch: if v.contains_key("rch") && !json_utilities::is_null(&v, "rch")? { Some(json_utilities::value_to_number(v.get("rch").ok_or("failed to get rch")?)?) } else { None },
-                rchp: if v.contains_key("rchp") && !json_utilities::is_null(&v, "rchp")? { Some(json_utilities::value_to_number(v.get("rchp").ok_or("failed to get rchp")?)?) } else { None },
+                rch: if v.contains_key("rch") && !json_utilities::is_null(&v, "rch")? { Some(json_utilities::value_to_number(v.get("rch").ok_or(anyhow::anyhow!("failed to get rch"))?)?) } else { None },
+                rchp: if v.contains_key("rchp") && !json_utilities::is_null(&v, "rchp")? { Some(json_utilities::value_to_number(v.get("rchp").ok_or(anyhow::anyhow!("failed to get rchp"))?)?) } else { None },
 
-                lp: if v.contains_key("lp") { Some(json_utilities::value_to_number(v.get("lp").ok_or("failed to get lp")?)?) } else { None },
-                lp_time: if v.contains_key("lp_time") { Some(json_utilities::value_to_number(v.get("lp_time").ok_or("failed to get lp_time")?)?) } else { None },
+                lp: if v.contains_key("lp") { Some(json_utilities::value_to_number(v.get("lp").ok_or(anyhow::anyhow!("failed to get lp"))?)?) } else { None },
+                lp_time: if v.contains_key("lp_time") { Some(json_utilities::value_to_number(v.get("lp_time").ok_or(anyhow::anyhow!("failed to get lp_time"))?)?) } else { None },
 
-                rtc: if v.contains_key("rtc") && !json_utilities::is_null(&v, "rtc")? { Some(json_utilities::value_to_number(v.get("rtc").ok_or("failed to get rtc")?)?) } else { None },
-                rtc_time: if v.contains_key("rtc_time") && !json_utilities::is_null(&v, "rtc_time")? { Some(json_utilities::value_to_number(v.get("rtc_time").ok_or("failed to get rtc_time")?)?) } else { None },
+                rtc: if v.contains_key("rtc") && !json_utilities::is_null(&v, "rtc")? { Some(json_utilities::value_to_number(v.get("rtc").ok_or(anyhow::anyhow!("failed to get rtc"))?)?) } else { None },
+                rtc_time: if v.contains_key("rtc_time") && !json_utilities::is_null(&v, "rtc_time")? { Some(json_utilities::value_to_number(v.get("rtc_time").ok_or(anyhow::anyhow!("failed to get rtc_time"))?)?) } else { None },
 
-                ask: if v.contains_key("ask") { Some(json_utilities::value_to_number(v.get("ask").ok_or("failed to get ask")?)?) } else { None },
-                ask_size: if v.contains_key("ask_size") { Some(json_utilities::value_to_number(v.get("ask_size").ok_or("failed to get ask_size")?)?) } else { None },
+                ask: if v.contains_key("ask") { Some(json_utilities::value_to_number(v.get("ask").ok_or(anyhow::anyhow!("failed to get ask"))?)?) } else { None },
+                ask_size: if v.contains_key("ask_size") { Some(json_utilities::value_to_number(v.get("ask_size").ok_or(anyhow::anyhow!("failed to get ask_size"))?)?) } else { None },
 
-                bid: if v.contains_key("bid") { Some(json_utilities::value_to_number(v.get("bid").ok_or("failed to get bid")?)?) } else { None },
-                bid_size: if v.contains_key("bid_size") { Some(json_utilities::value_to_number(v.get("bid_size").ok_or("failed to get bid_size")?)?) } else { None },
+                bid: if v.contains_key("bid") { Some(json_utilities::value_to_number(v.get("bid").ok_or(anyhow::anyhow!("failed to get bid"))?)?) } else { None },
+                bid_size: if v.contains_key("bid_size") { Some(json_utilities::value_to_number(v.get("bid_size").ok_or(anyhow::anyhow!("failed to get bid_size"))?)?) } else { None },
 
-                trade_loaded: if v.contains_key("trade_loaded") { Some(json_utilities::value_to_bool(v.get("trade_loaded").ok_or("failed to get trade_loaded")?)?) } else { None },
+                trade_loaded: if v.contains_key("trade_loaded") { Some(json_utilities::value_to_bool(v.get("trade_loaded").ok_or(anyhow::anyhow!("failed to get trade_loaded"))?)?) } else { None },
 
                 // TODO: more fields?
             };
@@ -223,7 +222,7 @@ impl ParsedTradingViewMessage {
             }))
         } else if message_type == "du" {
             //log::info!("du = {parsed_message:?}");
-            let p = parsed_message.get("p").ok_or("failed to get p")?;
+            let p = parsed_message.get("p").ok_or(anyhow::anyhow!("failed to get p"))?;
             let p = json_utilities::value_to_array(p)?;
             let chart_session_id = &p[0];
             let chart_session_id = json_utilities::value_to_string(&chart_session_id)?;
@@ -233,9 +232,9 @@ impl ParsedTradingViewMessage {
             assert!(update_keys.len() == 1);
             let update_key = update_keys[0];
             if update_key == "sds_1" { // series
-                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
+                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or(anyhow::anyhow!("failed to get update_key"))?)?;
                 if update_value.contains_key("s") {
-                    let s = update_value.get("s").ok_or("failed to get s")?;
+                    let s = update_value.get("s").ok_or(anyhow::anyhow!("failed to get s"))?;
                     let s = json_utilities::value_to_array(s)?;
                     let series_updates = s.iter().map(|element| {
                         // value -> object
@@ -284,8 +283,8 @@ impl ParsedTradingViewMessage {
                     }))
                 }
             } else if update_key == "st1" || update_key == "st2" { // study
-                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
-                let st = update_value.get("st").ok_or("failed to get st")?;
+                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or(anyhow::anyhow!("failed to get update_key"))?)?;
+                let st = update_value.get("st").ok_or(anyhow::anyhow!("failed to get st"))?;
                 let st = json_utilities::value_to_array(st)?;
                 let study_updates = st.iter().map(|element| {
                     // value -> object
@@ -316,7 +315,7 @@ impl ParsedTradingViewMessage {
             }
         } else if message_type == "quote_completed" {
             //log::info!("quote_completed = {parsed_message:?}");
-            let p = parsed_message.get("p").ok_or("failed to get p")?;
+            let p = parsed_message.get("p").ok_or(anyhow::anyhow!("failed to get p"))?;
             let p = json_utilities::value_to_array(p)?;
             let quote_session_id = &p[0];
             let quote_session_id = json_utilities::value_to_string(&quote_session_id)?;
@@ -328,7 +327,7 @@ impl ParsedTradingViewMessage {
             }))
         } else if message_type == "timescale_update" {
             //log::info!("timescale_update parsed_message = {parsed_message:?}");
-            let p = parsed_message.get("p").ok_or("failed to get p")?;
+            let p = parsed_message.get("p").ok_or(anyhow::anyhow!("failed to get p"))?;
             let p = json_utilities::value_to_array(p)?;
             let chart_session_id = &p[0];
             let chart_session_id = json_utilities::value_to_string(&chart_session_id)?;
@@ -344,8 +343,8 @@ impl ParsedTradingViewMessage {
                 }))
             } else if update_keys.len() == 1 {
                 let update_key = update_keys[0];
-                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or("failed to get update_key")?)?;
-                let s = update_value.get("s").ok_or("failed to get s")?;
+                let update_value = json_utilities::value_to_object(update.get(update_key).ok_or(anyhow::anyhow!("failed to get update_key"))?)?;
+                let s = update_value.get("s").ok_or(anyhow::anyhow!("failed to get s"))?;
                 let s = json_utilities::value_to_array(s)?;
                 let timescale_updates = s.iter().map(|element| {
                     // value -> object

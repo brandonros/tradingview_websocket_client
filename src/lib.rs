@@ -1,7 +1,6 @@
 mod message_wrapper;
 mod reader;
 mod writer;
-mod types;
 mod client;
 mod utilities;
 mod json_utilities;

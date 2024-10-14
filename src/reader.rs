@@ -3,7 +3,6 @@ use bytes::{Buf, BytesMut};
 use futures_lite::io::AsyncRead;
 
 use crate::message_wrapper::TradingViewMessageWrapper;
-use crate::types::Result;
 
 pub struct TradingViewReader<R>
 where
@@ -26,7 +25,7 @@ where
     }
 
     /// Reads the next TradingView message, handling partial messages and buffering.
-    pub async fn read_message(&mut self) -> Result<Option<TradingViewMessageWrapper>> {
+    pub async fn read_message(&mut self) -> anyhow::Result<Option<TradingViewMessageWrapper>> {
         loop {
             // Try to parse a TradingView message from the tv_buffer
             if let Some(message) = self.parse_message()? {
@@ -44,7 +43,7 @@ where
                                     return Ok(None);
                                 },
                                 websocket_client::WebSocketOpcode::Text => {
-                                    self.buffer.extend_from_slice(&ws_message.payload_buffer);
+                                    self.buffer.extend_from_slice(&ws_message.payload);
                                 },
                                 _ => todo!()
                             }
@@ -69,7 +68,7 @@ where
     }
 
     /// Parses a TradingView message from the buffer.
-    fn parse_message(&mut self) -> Result<Option<TradingViewMessageWrapper>> {
+    fn parse_message(&mut self) -> anyhow::Result<Option<TradingViewMessageWrapper>> {
         if self.buffer.is_empty() {
             return Ok(None);
         }

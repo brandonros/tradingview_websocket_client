@@ -9,23 +9,31 @@ futures-lite = { version =  "2.3.0" }
 async-io = "2.3.4"
 async-lock = "3.4.0"
 async-trait = "0.1.83"
+async-executor = "1.13.1"
+# async macros
+smol-macros = "0.1.1"
+macro_rules_attribute = "0.2.0"
 # logging
 log = "0.4.20"
 # protocol codec
 bytes = "1.7.2"
 nom = "7.1.3"
 # websocket
-websocket_client = { git = "https://github.com/brandonros/websocket_client.git", rev = "543ea14b77e586203c2c6216bdc3c9d8f4b289a0" }
+websocket_client = { path = "../websocket_client" }
 # http
 http = "1.0.0"
-http_client = { git = "https://github.com/brandonros/http_client.git", rev = "52cf9005c87ff069a098af9365dcd7a60e276792" }
+http_client = { path = "../http_client" }
 # json
 miniserde = "0.1.40"
 # enum
 enum-as-inner = "0.6.1"
+# errors
+anyhow = "1.0.89"
 
 [dev-dependencies]
 # logging
 env_logger = "0.11.5"
 # env
 dotenvy = "0.15.7"
+# errors
+anyhow = "1.0.89"

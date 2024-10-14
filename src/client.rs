@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_executor::Executor;
 use async_lock::RwLock;
 use http::{Request, Uri, Version};
 use http_client::HttpClient;
@@ -16,7 +17,6 @@ use crate::writer::TradingViewWriter;
 use crate::message_wrapper::TradingViewMessageWrapper;
 use crate::scrape_result::TradingViewScrapeResult;
 use crate::message_processor::TradingViewMessageProcessor;
-use crate::types::Result;
 
 pub struct TradingViewClient {
     config: TradingViewClientConfig,
@@ -31,7 +31,7 @@ impl TradingViewClient {
         }
     }
 
-    pub async fn run(&self) -> Result<TradingViewScrapeResult> {
+    pub async fn run(&self, executor: &Arc<Executor<'static>>) -> anyhow::Result<TradingViewScrapeResult> {
         // Build the URI for the request
         let uri: Uri = "wss://data.tradingview.com/socket.io/websocket?type=chart".parse()?;
 
@@ -89,36 +89,34 @@ impl TradingViewClient {
         };
 
         // Spawn the reader task
-        let _reader_handle = std::thread::spawn(move || {
-            futures_lite::future::block_on(async {
-                loop {
-                    match tv_reader.read_message().await {
-                        Ok(result) => {
-                            match result {
-                                Some(message) => {
-                                    // add message to buffer
-                                    let mut write_lock = reader_handle_buffer_ref.write().await;
-                                    write_lock.push(message);
-                                    drop(write_lock);
-                                },
-                                None => {
-                                    log::warn!("received none");
-                                    break;
-                                }
+        let _reader_handle = executor.spawn(async move {
+            loop {
+                match tv_reader.read_message().await {
+                    Ok(result) => {
+                        match result {
+                            Some(message) => {
+                                // add message to buffer
+                                let mut write_lock = reader_handle_buffer_ref.write().await;
+                                write_lock.push(message);
+                                drop(write_lock);
+                            },
+                            None => {
+                                log::warn!("received none");
+                                break;
                             }
-                        },
-                        Err(err) => panic!("{err:?}"),
-                    }
+                        }
+                    },
+                    Err(err) => panic!("{err:?}"),
                 }
-            })
+            }
         });
         
         // Wait for server hello message with timeout
         let server_hello_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("javastudies"))))
             .await
-            .ok_or("timed out")?
-            .ok_or("failed to get server hello message")?;
-        let server_hello_message = server_hello_message.parsed_message.as_server_hello().ok_or("failed to cast")?;
+            .ok_or(anyhow::anyhow!("timed out"))?
+            .ok_or(anyhow::anyhow!("failed to get server hello message"))?;
+        let server_hello_message = server_hello_message.parsed_message.as_server_hello().ok_or(anyhow::anyhow!("failed to cast"))?;
         log::info!("server_hello_message = {server_hello_message:?}");
         scrape_result.server_hello_messages.push(server_hello_message.clone());
 
@@ -142,11 +140,11 @@ impl TradingViewClient {
             tv_writer.resolve_symbol(&chart_session_id, symbol_id, &chart_symbol).await?;
 
             // wait for symbol resolved message
-            let symbol_resolved_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("symbol_resolved"))))
+            let symbol_resolved_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("symbol_resolved"))))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get symbol resolved message")?;
-            let symbol_resolved_message = symbol_resolved_message.parsed_message.as_symbol_resolved().ok_or("failed to cast")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get symbol resolved message"))?;
+            let symbol_resolved_message = symbol_resolved_message.parsed_message.as_symbol_resolved().ok_or(anyhow::anyhow!("failed to cast"))?;
             log::info!("symbol_resolved_message = {symbol_resolved_message:?}");
             scrape_result.symbol_resolved_messages.push(symbol_resolved_message.clone());
 
@@ -158,30 +156,30 @@ impl TradingViewClient {
             tv_writer.switch_timezone(&chart_session_id, "exchange").await?;
 
             // wait for series loading message
-            let series_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_loading"))))
+            let series_loading_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_loading"))))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get series loading message")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get series loading message"))?;
             log::info!("series_loading_message = {series_loading_message:?}");
-            let series_loading_message = series_loading_message.parsed_message.as_series_loading().ok_or("failed to cast")?;
+            let series_loading_message = series_loading_message.parsed_message.as_series_loading().ok_or(anyhow::anyhow!("failed to cast"))?;
             scrape_result.series_loading_messages.push(series_loading_message.clone());
 
             // wait for timescale update message
-            let timescale_update_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("timescale_update"))))
+            let timescale_update_message = utilities::run_with_timeout(Duration::from_secs(5), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("timescale_update"))))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get timesale update message")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get timesale update message"))?;
             log::info!("timescale_update_message = {timescale_update_message:?}");
-            let timescale_update_message = timescale_update_message.parsed_message.as_timescale_update().ok_or("failed to cast")?;
+            let timescale_update_message = timescale_update_message.parsed_message.as_timescale_update().ok_or(anyhow::anyhow!("failed to cast"))?;
             scrape_result.timescale_update_messages.push(timescale_update_message.clone());
 
             // wait for series completed message
-            let series_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_completed"))))
+            let series_completed_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("series_completed"))))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get series completed message")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get series completed message"))?;
             log::info!("series_completed_message = {series_completed_message:?}");
-            let series_completed_message = series_completed_message.parsed_message.as_series_completed().ok_or("failed to cast")?;
+            let series_completed_message = series_completed_message.parsed_message.as_series_completed().ok_or(anyhow::anyhow!("failed to cast"))?;
             scrape_result.series_completed_messages.push(series_completed_message.clone());
 
             // optionally create study session
@@ -190,20 +188,20 @@ impl TradingViewClient {
                 tv_writer.create_study(&chart_session_id, study_session_id, "sessions_1", series_id, "Sessions@tv-basicstudies-241", "{}").await?;
 
                 // wait for study loading message
-                let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
+                let study_loading_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
                     .await
-                    .ok_or("timed out")?
-                    .ok_or("failed to get study loading message")?;
-                let study_loading_message = study_loading_message.parsed_message.as_study_loading().ok_or("failed to cast")?;
+                    .ok_or(anyhow::anyhow!("timed out"))?
+                    .ok_or(anyhow::anyhow!("failed to get study loading message"))?;
+                let study_loading_message = study_loading_message.parsed_message.as_study_loading().ok_or(anyhow::anyhow!("failed to cast"))?;
                 log::info!("study_loading_message = {study_loading_message:?}");
                 scrape_result.study_loading_messages.push(study_loading_message.clone());
 
                 // wait for study completed message
-                let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
+                let study_completed_message = utilities::run_with_timeout(Duration::from_secs(5), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
                     .await
-                    .ok_or("timed out")?
-                    .ok_or("failed to get study completed message")?;
-                let study_completed_message = study_completed_message.parsed_message.as_study_completed().ok_or("failed to cast")?;
+                    .ok_or(anyhow::anyhow!("timed out"))?
+                    .ok_or(anyhow::anyhow!("failed to get study completed message"))?;
+                let study_completed_message = study_completed_message.parsed_message.as_study_completed().ok_or(anyhow::anyhow!("failed to cast"))?;
                 log::info!("study_completed_message = {study_completed_message:?}");
                 scrape_result.study_completed_messages.push(study_completed_message.clone());
 
@@ -215,25 +213,25 @@ impl TradingViewClient {
                     index += 1;
 
                     // wait for study loading message
-                    let study_loading_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
+                    let study_loading_message = utilities::run_with_timeout(Duration::from_secs(2), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_loading"))))
                         .await
-                        .ok_or("timed out")?
-                        .ok_or("failed to get study loading message")?;
-                    let study_loading_message = study_loading_message.parsed_message.as_study_loading().ok_or("failed to cast")?;
+                        .ok_or(anyhow::anyhow!("timed out"))?
+                        .ok_or(anyhow::anyhow!("failed to get study loading message"))?;
+                    let study_loading_message = study_loading_message.parsed_message.as_study_loading().ok_or(anyhow::anyhow!("failed to cast"))?;
                     log::info!("study_loading_message = {study_loading_message:?}");
                     scrape_result.study_loading_messages.push(study_loading_message.clone());
 
                     // wait for study completed message
-                    let study_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
+                    let study_completed_message = utilities::run_with_timeout(Duration::from_secs(5), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("study_completed"))))
                         .await
-                        .ok_or("timed out")?
-                        .ok_or("failed to get study completed message")?;
-                    let study_completed_message = study_completed_message.parsed_message.as_study_completed().ok_or("failed to cast")?;
+                        .ok_or(anyhow::anyhow!("timed out"))?
+                        .ok_or(anyhow::anyhow!("failed to get study completed message"))?;
+                    let study_completed_message = study_completed_message.parsed_message.as_study_completed().ok_or(anyhow::anyhow!("failed to cast"))?;
                     log::info!("study_completed_message = {study_completed_message:?}");
                     scrape_result.study_completed_messages.push(study_completed_message.clone());
 
                     // wait for study data update
-                    let study_data_update_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| {
+                    let study_data_update_message = utilities::run_with_timeout(Duration::from_secs(5), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| {
                         match &message.parsed_message {
                             ParsedTradingViewMessage::DataUpdate(data_update_message) => {
                                 match &data_update_message.study_updates {
@@ -247,9 +245,9 @@ impl TradingViewClient {
                         }
                     })))
                     .await
-                    .ok_or("timed out")?
-                    .ok_or("failed to get series data update")?;
-                    let study_data_update_message = study_data_update_message.parsed_message.as_data_update().ok_or("failed to cast")?;
+                    .ok_or(anyhow::anyhow!("timed out"))?
+                    .ok_or(anyhow::anyhow!("failed to get series data update"))?;
+                    let study_data_update_message = study_data_update_message.parsed_message.as_data_update().ok_or(anyhow::anyhow!("failed to cast"))?;
                     log::info!("study_data_update_message = {study_data_update_message:?}");
                     scrape_result.study_data_update_messages.push(study_data_update_message.clone());
                 }
@@ -278,9 +276,9 @@ impl TradingViewClient {
             // wait for quote completed message
             let quote_completed_message = utilities::run_with_timeout(Duration::from_secs(1), Box::pin(utilities::wait_for_message(buffer_arc.clone(), |message| message.payload.contains("quote_completed"))))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get quote completed message")?;
-            let quote_completed_message = quote_completed_message.parsed_message.as_quote_completed().ok_or("failed to cast")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get quote completed message"))?;
+            let quote_completed_message = quote_completed_message.parsed_message.as_quote_completed().ok_or(anyhow::anyhow!("failed to cast"))?;
             log::info!("quote_completed_message = {quote_completed_message:?}");
             scrape_result.quote_completed_messages.push(quote_completed_message.clone());
 
@@ -294,9 +292,9 @@ impl TradingViewClient {
                     }
                 })))
                 .await
-                .ok_or("timed out")?
-                .ok_or("failed to get quote last price message")?;
-            let quote_last_price_message = quote_last_price_message.parsed_message.as_quote_series_data().ok_or("failed to cast")?;
+                .ok_or(anyhow::anyhow!("timed out"))?
+                .ok_or(anyhow::anyhow!("failed to get quote last price message"))?;
+            let quote_last_price_message = quote_last_price_message.parsed_message.as_quote_series_data().ok_or(anyhow::anyhow!("failed to cast"))?;
             log::info!("quote_last_price_message = {quote_last_price_message:?}");
             scrape_result.quote_last_price_messages.push(quote_last_price_message.clone());
 
@@ -310,7 +308,7 @@ impl TradingViewClient {
 
             // TODO: wait for individual sries_loading / study_loading / study_completed messages
 
-            async_io::Timer::after(Duration::from_millis(1000)).await;
+            async_io::Timer::after(Duration::from_secs(1)).await;
         }*/
 
         // exit if simple
