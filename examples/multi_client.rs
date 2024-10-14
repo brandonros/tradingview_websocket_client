@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use smol_macros::Executor;
-use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClientConfig, TradingViewClientMode, TradingViewIndicators, TradingViewMessageProcessor, SPY5_EXT_SYMBOL, SPY5_REG_SYMBOL};
+use tradingview_websocket_client::{DefaultTradingViewMessageProcessor, TradingViewClientConfig, TradingViewClientMode, TradingViewIndicators, TradingViewMessageProcessor, SPY5_EXT_SYMBOL, SPY5_REG_SYMBOL};
 
 #[macro_rules_attribute::apply(smol_macros::main!)]
 async fn main(executor: Arc<Executor<'static>>) -> anyhow::Result<()> {
@@ -61,7 +61,7 @@ async fn main(executor: Arc<Executor<'static>>) -> anyhow::Result<()> {
     for client in clients {
         let executor_clone = executor.clone();
         let handle = executor.spawn(async move {
-            match client.run(&executor_clone).await {
+            match client.run(executor_clone).await {
                 Ok(_) => (),
                 Err(err) => panic!("{err}"),
             }

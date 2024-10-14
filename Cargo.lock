@@ -718,7 +718,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 
 [[package]]
-name = "tradingview_client"
+name = "tradingview_websocket_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use smol_macros::Executor;
-use tradingview_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewClientMode, TradingViewMessageProcessor};
+use tradingview_websocket_client::{DefaultTradingViewMessageProcessor, TradingViewClient, TradingViewClientConfig, TradingViewClientMode, TradingViewMessageProcessor};
 
 #[macro_rules_attribute::apply(smol_macros::main!)]
 async fn main(executor: Arc<Executor<'static>>) -> anyhow::Result<()> {
@@ -31,7 +31,7 @@ async fn main(executor: Arc<Executor<'static>>) -> anyhow::Result<()> {
     let client: TradingViewClient = config.to_client(message_processor);
 
     // spawn client
-    let scrape_result = match client.run(&executor).await {
+    let scrape_result = match client.run(executor).await {
         Ok(scrape_result) => scrape_result,
         Err(err) => panic!("{err}"),
     };

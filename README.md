@@ -1,4 +1,4 @@
-# tradingview_client
+# tradingview_websocket_client
 Async TradingView WebSocket client for use with async_std
 
 ## How to get TradingView API token
